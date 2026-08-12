@@ -1,4 +1,3 @@
-```html
 <!doctype html>
 <html>
 <head>
@@ -156,7 +155,6 @@ function playFireballSound(){
     now
   );
 
-  /* Quiet fireball sound */
   gain.gain.exponentialRampToValueAtTime(
     0.035,
     now+0.01
@@ -172,6 +170,130 @@ function playFireballSound(){
 
   osc.start(now);
   osc.stop(now+0.11);
+}
+
+
+/* =========================
+   PIXEL BOMB EXPLOSION SOUND
+   ========================= */
+
+function playBombExplosionSound(){
+
+  if(!audioCtx)return;
+
+  const now=audioCtx.currentTime;
+
+
+  /* Low square-wave boom */
+
+  const boom=
+    audioCtx.createOscillator();
+
+  const boomGain=
+    audioCtx.createGain();
+
+  boom.type="square";
+
+  boom.frequency.setValueAtTime(
+    105,
+    now
+  );
+
+  boom.frequency.exponentialRampToValueAtTime(
+    38,
+    now+0.22
+  );
+
+  boomGain.gain.setValueAtTime(
+    0.0001,
+    now
+  );
+
+  boomGain.gain.exponentialRampToValueAtTime(
+    0.12,
+    now+0.015
+  );
+
+  boomGain.gain.exponentialRampToValueAtTime(
+    0.0001,
+    now+0.25
+  );
+
+  boom.connect(boomGain);
+  boomGain.connect(audioCtx.destination);
+
+  boom.start(now);
+  boom.stop(now+0.27);
+
+
+  /* Pixelated high-frequency crack */
+
+  const crack=
+    audioCtx.createOscillator();
+
+  const crackGain=
+    audioCtx.createGain();
+
+  crack.type="square";
+
+  crack.frequency.setValueAtTime(
+    900,
+    now
+  );
+
+  crack.frequency.exponentialRampToValueAtTime(
+    180,
+    now+0.12
+  );
+
+  crackGain.gain.setValueAtTime(
+    0.0001,
+    now
+  );
+
+  crackGain.gain.exponentialRampToValueAtTime(
+    0.055,
+    now+0.005
+  );
+
+  crackGain.gain.exponentialRampToValueAtTime(
+    0.0001,
+    now+0.14
+  );
+
+  crack.connect(crackGain);
+  crackGain.connect(audioCtx.destination);
+
+  crack.start(now);
+  crack.stop(now+0.15);
+
+
+  /* Tiny digital click */
+
+  const click=
+    audioCtx.createOscillator();
+
+  const clickGain=
+    audioCtx.createGain();
+
+  click.type="square";
+  click.frequency.value=1400;
+
+  clickGain.gain.setValueAtTime(
+    0.025,
+    now
+  );
+
+  clickGain.gain.exponentialRampToValueAtTime(
+    0.0001,
+    now+0.035
+  );
+
+  click.connect(clickGain);
+  clickGain.connect(audioCtx.destination);
+
+  click.start(now);
+  click.stop(now+0.04);
 }
 
 
@@ -199,8 +321,6 @@ function playMusicStep(){
   const bassNote=
     bass[musicStep%bass.length];
 
-
-  /* Main music - louder than before */
 
   const osc=
     audioCtx.createOscillator();
@@ -232,8 +352,6 @@ function playMusicStep(){
   osc.start(now);
   osc.stop(now+0.26);
 
-
-  /* Bass - louder too */
 
   const bassOsc=
     audioCtx.createOscillator();
@@ -704,6 +822,22 @@ function spawnBombPickup(){
 }
 
 
+/*
+  Medium bomb throw range.
+
+  The bomb travels normally and keeps
+  going until it reaches this distance.
+*/
+const BOMB_THROW_DISTANCE=300;
+
+
+/*
+  How long the bomb visually
+  disintegrates after exploding.
+*/
+const BOMB_DISINTEGRATE_TIME=22;
+
+
 function throwBomb(){
 
   if(
@@ -737,8 +871,17 @@ function throwBomb(){
     vy:
       Math.sin(a)*7,
 
-    life:90,
-    r:9
+    life:120,
+
+    r:9,
+
+    distance:0,
+
+    exploded:false,
+
+    disintegrate:0,
+
+    rotation:0
 
   });
 }
@@ -746,12 +889,69 @@ function throwBomb(){
 
 function explodeBomb(b){
 
+  if(b.exploded)return;
+
+  b.exploded=true;
+
+  b.disintegrate=
+    BOMB_DISINTEGRATE_TIME;
+
+  b.vx=0;
+  b.vy=0;
+
+
+  /* Pixel explosion sound */
+
+  playBombExplosionSound();
+
+
+  /*
+    Large pixel burst.
+    The bomb itself stays visible while
+    it slowly disintegrates.
+  */
+
   burst(
     b.x,
     b.y,
-    28
+    42
   );
 
+
+  /*
+    Extra explosion particles.
+  */
+
+  for(
+    let i=0;
+    i<18;
+    i++
+  ){
+
+    particles.push({
+
+      x:b.x,
+      y:b.y,
+
+      vx:
+        (Math.random()-.5)*7,
+
+      vy:
+        (Math.random()-.5)*7,
+
+      life:
+        18+
+        Math.random()*15
+
+    });
+
+  }
+
+
+  /*
+    Damage enemies inside the
+    bomb's medium explosion radius.
+  */
 
   for(
     const e of enemies
@@ -873,12 +1073,6 @@ function endGame(){
    ========================= */
 
 function buyUpgrade(kind){
-
-  /*
-    NOTHING is always free.
-    It does not cost coins and simply
-    closes the upgrade screen.
-  */
 
   if(
     kind==="nothing"
@@ -1285,8 +1479,6 @@ function draw(){
 
     }else{
 
-      /* Ogre */
-
       rectPixel(
         e.x-25,
         e.y-25,
@@ -1448,8 +1640,6 @@ function draw(){
     }
 
 
-    /* Health bar */
-
     const bw=
       e.type==="ogre"
       ?64
@@ -1536,35 +1726,139 @@ function draw(){
   }
 
 
-  /* Thrown bombs */
+  /* =========================
+     THROWN BOMBS
+     ========================= */
 
   for(
     const b of bombs
   ){
 
-    rectPixel(
-      b.x-8,
-      b.y-7,
-      16,
-      14,
-      "#111"
-    );
+    /*
+      Normal flying bomb.
+    */
 
-    rectPixel(
-      b.x-6,
-      b.y-6,
-      12,
-      12,
-      "#444"
-    );
+    if(!b.exploded){
 
-    rectPixel(
-      b.x-2,
-      b.y-10,
-      5,
-      4,
-      "#777"
-    );
+      rectPixel(
+        b.x-8,
+        b.y-7,
+        16,
+        14,
+        "#111"
+      );
+
+      rectPixel(
+        b.x-6,
+        b.y-6,
+        12,
+        12,
+        "#444"
+      );
+
+      rectPixel(
+        b.x-2,
+        b.y-10,
+        5,
+        4,
+        "#777"
+      );
+
+      rectPixel(
+        b.x+3,
+        b.y-11,
+        5,
+        3,
+        "#ddd"
+      );
+
+    }else{
+
+      /*
+        Slowly disintegrating bomb.
+
+        As disintegrate approaches 0,
+        the bomb becomes smaller and
+        more transparent.
+      */
+
+      const progress=
+        b.disintegrate/
+        BOMB_DISINTEGRATE_TIME;
+
+      ctx.save();
+
+      ctx.globalAlpha=
+        Math.max(
+          0,
+          progress
+        );
+
+
+      const size=
+        7+
+        Math.round(
+          progress*5
+        );
+
+
+      rectPixel(
+        b.x-size,
+        b.y-size,
+        size*2,
+        size*2,
+        "#111"
+      );
+
+
+      rectPixel(
+        b.x-size+3,
+        b.y-size+3,
+        Math.max(
+          2,
+          size*2-6
+        ),
+        Math.max(
+          2,
+          size*2-6
+        ),
+        "#444"
+      );
+
+
+      /*
+        Small pieces falling away from
+        the bomb during disintegration.
+      */
+
+      if(
+        Math.floor(
+          b.disintegrate
+        )%3===0
+      ){
+
+        rectPixel(
+          b.x-size-5,
+          b.y+size+2,
+          4,
+          4,
+          "#555"
+        );
+
+        rectPixel(
+          b.x+size+3,
+          b.y-size-3,
+          3,
+          3,
+          "#777"
+        );
+
+      }
+
+
+      ctx.restore();
+
+    }
   }
 
 
@@ -1607,7 +1901,10 @@ function draw(){
   ){
 
     ctx.globalAlpha=
-      s.life/22;
+      Math.min(
+        1,
+        s.life/22
+      );
 
 
     rectPixel(
@@ -1745,10 +2042,6 @@ function draw(){
 
   }
 
-
-  /* =========================
-     COINS TOP RIGHT
-     ========================= */
 
   drawCoin(
     780,
@@ -1913,8 +2206,6 @@ function draw(){
     );
 
 
-    /* Coins shown on upgrade screen */
-
     drawCoin(
       365,
       150
@@ -1984,11 +2275,6 @@ function draw(){
       const [n,t,d,x]
       of cards
     ){
-
-      /*
-        Make the Nothing card green
-        because it is always available.
-      */
 
       ctx.fillStyle=
         t==="NOTHING"
@@ -2377,50 +2663,122 @@ function loop(){
         );
 
 
-      /* Bombs */
+      /* =========================
+         BOMBS
+         ========================= */
 
       for(
         const b of bombs
       ){
 
-        b.x+=b.vx;
-        b.y+=b.vy;
-        b.life--;
+        /*
+          Flying bomb:
+          keep moving until the medium
+          throw distance is reached.
+        */
 
+        if(!b.exploded){
 
-        if(
-          b.life>0&&
-          b.x>40&&
-          b.x<860&&
-          b.y>55&&
-          b.y<545
-        ){
+          b.x+=b.vx;
+          b.y+=b.vy;
 
-          const hit=
-            enemies.find(
-              e=>
-                Math.hypot(
-                  b.x-e.x,
-                  b.y-e.y
-                )<
-                e.r+b.r
+          b.distance+=
+            Math.hypot(
+              b.vx,
+              b.vy
             );
 
+          b.life--;
 
-          if(hit){
+          b.rotation+=0.15;
 
-            b.life=0;
+
+          /*
+            Explode when it reaches the
+            medium throw radius.
+          */
+
+          if(
+            b.distance>=BOMB_THROW_DISTANCE
+          ){
 
             explodeBomb(b);
 
           }
+
+
+          /*
+            Also explode if it hits
+            an enemy before reaching
+            maximum range.
+          */
+
+          if(!b.exploded){
+
+            const hit=
+              enemies.find(
+                e=>
+                  Math.hypot(
+                    b.x-e.x,
+                    b.y-e.y
+                  )<
+                  e.r+b.r
+              );
+
+
+            if(hit){
+
+              explodeBomb(b);
+
+            }
+          }
+
+
+          /*
+            Keep bombs inside the
+            game arena.
+          */
+
+          if(
+            !b.exploded&&
+            (
+              b.x<=40||
+              b.x>=860||
+              b.y<=55||
+              b.y>=545
+            )
+          ){
+
+            explodeBomb(b);
+
+          }
+
+
+        }else{
+
+          /*
+            Explosion phase.
+
+            The bomb remains for a short
+            time and slowly disintegrates.
+          */
+
+          b.disintegrate--;
+
         }
       }
 
 
+      /*
+        Remove bombs only after their
+        disintegration animation finishes.
+      */
+
       bombs=
         bombs.filter(
-          b=>b.life>0
+          b=>
+            !b.exploded||
+            b.disintegrate>0
         );
 
 
@@ -2635,5 +2993,3 @@ loop();
 
 </body>
 </html>
-```
-
