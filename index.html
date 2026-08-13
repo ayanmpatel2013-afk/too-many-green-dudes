@@ -1,5 +1,5 @@
-```html
 <!doctype html>
+
 <html>
 <head>
 <meta charset="utf-8">
@@ -49,12 +49,12 @@ button{
 }
 #pauseBtn:hover{background:#594728}
 </style>
+
 </head>
 
 <body>
 
-<button id="pauseBtn">PAUSE</button>
-<button id="fullscreenBtn">FULLSCREEN</button>
+<button id="pauseBtn">PAUSE</button> <button id="fullscreenBtn">FULLSCREEN</button>
 
 <canvas id="game" width="900" height="600"></canvas>
 
@@ -67,7 +67,7 @@ ctx.imageSmoothingEnabled=false;
 const W=900,H=600;
 
 const ARENA={
-  left:25,
+  left:160,
   top:45,
   right:875,
   bottom:570
@@ -816,11 +816,8 @@ function spawnBigBoss(){
     hp:2400,
     maxHp:2400,
 
-    /*
-      Boss speed upgraded.
-      Faster than the player's base speed of 3.2.
-    */
-    speed:3.7,
+    /* Big Boss speed changed to 3.5 */
+    speed:3.5,
 
     attack:0,
     burn:0,
@@ -960,8 +957,9 @@ function spawnBombPickup(){
   if(bigBoss||bossCountdown>0)return;
 
   const x=
-    75+
-    Math.random()*720;
+    ARENA.left+50+
+    Math.random()*
+    (ARENA.right-ARENA.left-100);
 
   const y=
     90+
@@ -1170,7 +1168,6 @@ function regainHeart(){
     heartRegen=0;
 
   }
-
 }
 
 function endGame(){
@@ -1750,8 +1747,9 @@ function draw(){
   ){
 
     const x=
-      40+
-      Math.random()*820;
+      ARENA.left+15+
+      Math.random()*
+      (ARENA.right-ARENA.left-30);
 
     const y=
       60+
@@ -1766,6 +1764,107 @@ function draw(){
         ?"#353535"
         :"#3b3b3b"
     );
+  }
+
+  /*
+    LEFT SIDE INFORMATION PANEL
+    This sits outside the arena.
+  */
+
+  ctx.fillStyle="#202020";
+
+  ctx.fillRect(
+    8,
+    75,
+    135,
+    115
+  );
+
+  ctx.strokeStyle="#444";
+  ctx.lineWidth=2;
+
+  ctx.strokeRect(
+    8,
+    75,
+    135,
+    115
+  );
+
+  ctx.font="14px monospace";
+
+  ctx.fillStyle="#ffcf4d";
+
+  ctx.fillText(
+    "NEXT UPGRADE",
+    17,
+    98
+  );
+
+  ctx.fillStyle="#fff";
+
+  ctx.fillText(
+    Math.max(
+      0,
+      Math.ceil(
+        nextUpgrade-elapsed
+      )
+    )+"s",
+    17,
+    118
+  );
+
+  ctx.fillStyle="#7ee879";
+
+  ctx.fillText(
+    "GOBLIN LV",
+    17,
+    145
+  );
+
+  ctx.fillStyle="#fff";
+
+  ctx.fillText(
+    String(goblinBuffLevel),
+    17,
+    165
+  );
+
+  ctx.fillStyle="#ffcf4d";
+
+  ctx.fillText(
+    "BIG BOSS",
+    82,
+    145
+  );
+
+  if(
+    !bigBoss&&
+    bossCountdown<=0
+  ){
+
+    ctx.fillStyle="#fff";
+
+    ctx.fillText(
+      Math.max(
+        0,
+        Math.ceil(
+          nextBigBoss-elapsed
+        )
+      )+"s",
+      82,
+      165
+    );
+
+  }else if(bigBoss){
+
+    ctx.fillStyle="#ff4444";
+
+    ctx.fillText(
+      "ACTIVE",
+      82,
+      165
+    );
+
   }
 
   drawGate();
@@ -2394,13 +2493,8 @@ function draw(){
     33
   );
 
-  /*
-    MOVED TO LEFT SIDE:
-    Bomb counter remains at bottom-left.
-  */
-
   rectPixel(
-    25,
+    160,
     545,
     22,
     22,
@@ -2408,7 +2502,7 @@ function draw(){
   );
 
   rectPixel(
-    28,
+    163,
     548,
     16,
     16,
@@ -2416,7 +2510,7 @@ function draw(){
   );
 
   rectPixel(
-    32,
+    167,
     544,
     8,
     5,
@@ -2424,7 +2518,7 @@ function draw(){
   );
 
   rectPixel(
-    40,
+    175,
     541,
     7,
     3,
@@ -2435,7 +2529,7 @@ function draw(){
 
   ctx.fillText(
     "x"+bombCount,
-    52,
+    187,
     562
   );
 
@@ -2475,56 +2569,8 @@ function draw(){
 
   ctx.fillText(
     "WASD move • Mouse aim • Click fire • Q bomb • P pause",
-    25,
+    160,
     585
-  );
-
-  ctx.fillText(
-    "NEXT UPGRADE "+
-    Math.max(
-      0,
-      Math.ceil(
-        nextUpgrade-elapsed
-      )
-    )+
-    "s",
-    610,
-    25
-  );
-
-  /*
-    MOVED TO LEFT SIDE:
-    Big Boss countdown and Goblin Level.
-  */
-
-  if(
-    !bigBoss &&
-    bossCountdown<=0
-  ){
-
-    ctx.fillStyle="#ffcf4d";
-
-    ctx.fillText(
-      "BIG BOSS "+
-      Math.max(
-        0,
-        Math.ceil(
-          nextBigBoss-elapsed
-        )
-      )+
-      "s",
-      25,
-      85
-    );
-
-  }
-
-  ctx.fillStyle="#7ee879";
-
-  ctx.fillText(
-    "GOBLIN LV "+goblinBuffLevel,
-    25,
-    105
   );
 
   if(bossCountdown>0){
@@ -2876,7 +2922,7 @@ function loop(){
         )||1;
 
       /*
-        Boss speed = 3.7.
+        Big Boss speed = 3.5.
         Player base speed = 3.2.
       */
 
@@ -3424,4 +3470,3 @@ loop();
 
 </body>
 </html>
-```
