@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html>
 <head>
@@ -815,7 +816,10 @@ function spawnBigBoss(){
     hp:2400,
     maxHp:2400,
 
-    // Boss is slightly faster than the player's base speed of 3.2.
+    /*
+      Boss speed upgraded.
+      Faster than the player's base speed of 3.2.
+    */
     speed:3.7,
 
     attack:0,
@@ -1166,6 +1170,7 @@ function regainHeart(){
     heartRegen=0;
 
   }
+
 }
 
 function endGame(){
@@ -2389,6 +2394,11 @@ function draw(){
     33
   );
 
+  /*
+    MOVED TO LEFT SIDE:
+    Bomb counter remains at bottom-left.
+  */
+
   rectPixel(
     25,
     545,
@@ -2469,12 +2479,6 @@ function draw(){
     585
   );
 
-  /*
-    STATUS INFO MOVED TO LEFT SIDE
-  */
-
-  ctx.fillStyle="#fff";
-
   ctx.fillText(
     "NEXT UPGRADE "+
     Math.max(
@@ -2484,17 +2488,14 @@ function draw(){
       )
     )+
     "s",
-    25,
-    85
+    610,
+    25
   );
 
-  ctx.fillStyle="#7ee879";
-
-  ctx.fillText(
-    "GOBLIN LV "+goblinBuffLevel,
-    25,
-    105
-  );
+  /*
+    MOVED TO LEFT SIDE:
+    Big Boss countdown and Goblin Level.
+  */
 
   if(
     !bigBoss &&
@@ -2513,10 +2514,18 @@ function draw(){
       )+
       "s",
       25,
-      125
+      85
     );
 
   }
+
+  ctx.fillStyle="#7ee879";
+
+  ctx.fillText(
+    "GOBLIN LV "+goblinBuffLevel,
+    25,
+    105
+  );
 
   if(bossCountdown>0){
 
@@ -2866,8 +2875,10 @@ function loop(){
           dy
         )||1;
 
-      // Big Boss speed = 3.7
-      // Player base speed = 3.2
+      /*
+        Boss speed = 3.7.
+        Player base speed = 3.2.
+      */
 
       bigBoss.x+=
         dx/d*
@@ -3413,3 +3424,4 @@ loop();
 
 </body>
 </html>
+```
