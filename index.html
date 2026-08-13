@@ -56,7 +56,7 @@ canvas{
 <button id="pauseBtn">PAUSE</button>
 <button id="fullscreenBtn">FULLSCREEN</button>
 
-<canvas id="game" width="900" height="600"></canvas>
+<canvas id="game" width="1000" height="650"></canvas>
 
 <script>
 
@@ -65,14 +65,29 @@ const ctx=c.getContext("2d");
 
 ctx.imageSmoothingEnabled=false;
 
-const W=900,H=600;
+const W=1000,H=650;
+
+/* Larger arena */
+const ARENA={
+  x:35,
+  y:55,
+  w:930,
+  h:555
+};
+
+/* Gate on the right */
+const GATE={
+  x:925,
+  y:260,
+  w:40,
+  h:130
+};
 
 let keys={};
-let mouse={x:450,y:300,down:false};
+let mouse={x:500,y:325,down:false};
 
-let p,enemies,balls,particles,score,coins,wave,elapsed,gameOver,upgradeOpen,nextUpgrade;
-
-let paused=false;
+let p,enemies,balls,particles,score,coins,wave,elapsed,
+    gameOver,upgradeOpen,nextUpgrade,paused;
 
 let upgradeCost=10;
 
@@ -100,30 +115,6 @@ let highscore=Number(
 
 
 /* =========================
-   ARENA
-   ========================= */
-
-const ARENA={
-  left:25,
-  right:875,
-  top:40,
-  bottom:560
-};
-
-
-/* =========================
-   GOBLIN GATE
-   ========================= */
-
-const GATE={
-  x:835,
-  y:220,
-  width:40,
-  height:160
-};
-
-
-/* =========================
    AUDIO
    ========================= */
 
@@ -132,13 +123,8 @@ let musicStarted=false;
 let musicTimer=null;
 let musicStep=0;
 
-
-/*
-  All game sounds are doubled.
-*/
-
+/* 2x sound volume */
 const SOUND_MULTIPLIER=2;
-
 
 function startMusic(){
 
@@ -164,15 +150,11 @@ function startMusic(){
 
   }catch(err){
 
-    console.log(
-      "Music unavailable:",
-      err
-    );
+    console.log("Music unavailable:",err);
+
   }
 }
 
-
-/* FIREBALL SOUND */
 
 function playFireballSound(){
 
@@ -185,10 +167,7 @@ function playFireballSound(){
 
   osc.type="square";
 
-  osc.frequency.setValueAtTime(
-    240,
-    now
-  );
+  osc.frequency.setValueAtTime(240,now);
 
   osc.frequency.exponentialRampToValueAtTime(
     90,
@@ -218,22 +197,14 @@ function playFireballSound(){
 }
 
 
-/* =========================
-   PIXEL BOMB EXPLOSION SOUND
-   ========================= */
-
 function playBombExplosionSound(){
 
   if(!audioCtx)return;
 
   const now=audioCtx.currentTime;
 
-
-  const boom=
-    audioCtx.createOscillator();
-
-  const boomGain=
-    audioCtx.createGain();
+  const boom=audioCtx.createOscillator();
+  const boomGain=audioCtx.createGain();
 
   boom.type="square";
 
@@ -269,11 +240,8 @@ function playBombExplosionSound(){
   boom.stop(now+0.27);
 
 
-  const crack=
-    audioCtx.createOscillator();
-
-  const crackGain=
-    audioCtx.createGain();
+  const crack=audioCtx.createOscillator();
+  const crackGain=audioCtx.createGain();
 
   crack.type="square";
 
@@ -309,11 +277,8 @@ function playBombExplosionSound(){
   crack.stop(now+0.15);
 
 
-  const click=
-    audioCtx.createOscillator();
-
-  const clickGain=
-    audioCtx.createGain();
+  const click=audioCtx.createOscillator();
+  const clickGain=audioCtx.createGain();
 
   click.type="square";
   click.frequency.value=1400;
@@ -361,11 +326,8 @@ function playMusicStep(){
     bass[musicStep%bass.length];
 
 
-  const osc=
-    audioCtx.createOscillator();
-
-  const gain=
-    audioCtx.createGain();
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
 
   osc.type="triangle";
   osc.frequency.value=note;
@@ -392,11 +354,8 @@ function playMusicStep(){
   osc.stop(now+0.26);
 
 
-  const bassOsc=
-    audioCtx.createOscillator();
-
-  const bassGain=
-    audioCtx.createGain();
+  const bassOsc=audioCtx.createOscillator();
+  const bassGain=audioCtx.createGain();
 
   bassOsc.type="sine";
   bassOsc.frequency.value=bassNote;
@@ -427,18 +386,14 @@ function playMusicStep(){
 
 
 /* =========================
-   PAUSE BUTTON
+   PAUSE
    ========================= */
 
-const pauseBtn=
-  document.getElementById(
-    "pauseBtn"
-  );
-
+const pauseBtn=document.getElementById("pauseBtn");
 
 function togglePause(){
 
-  if(gameOver)return;
+  if(gameOver||upgradeOpen)return;
 
   paused=!paused;
 
@@ -447,17 +402,16 @@ function togglePause(){
     ?"RESUME"
     :"PAUSE";
 
-  mouse.down=false;
+  if(paused&&audioCtx){
+    /* Music simply stops producing new notes */
+  }
 }
-
 
 pauseBtn.addEventListener(
   "click",
   ()=>{
-
     startMusic();
     togglePause();
-
   }
 );
 
@@ -467,9 +421,7 @@ pauseBtn.addEventListener(
    ========================= */
 
 const fullscreenBtn=
-  document.getElementById(
-    "fullscreenBtn"
-  );
+  document.getElementById("fullscreenBtn");
 
 fullscreenBtn.addEventListener(
   "click",
@@ -490,6 +442,7 @@ fullscreenBtn.addEventListener(
 
         fullscreenBtn.textContent=
           "FULLSCREEN";
+
       }
 
     }catch(err){
@@ -498,6 +451,7 @@ fullscreenBtn.addEventListener(
         "Fullscreen unavailable:",
         err
       );
+
     }
   }
 );
@@ -523,8 +477,8 @@ document.addEventListener(
 function reset(){
 
   p={
-    x:450,
-    y:300,
+    x:500,
+    y:325,
     speed:3.2,
     damage:28,
     maxHp:100,
@@ -574,7 +528,6 @@ function reset(){
   spawnWave(1);
 }
 
-
 reset();
 
 
@@ -593,37 +546,30 @@ window.addEventListener(
     keys[key]=true;
 
 
-    if(
-      key==="p" &&
-      !e.repeat
-    ){
+    if(key==="p"&&!e.repeat){
 
       togglePause();
+
       return;
     }
 
 
-    if(
-      key==="r" &&
-      gameOver
-    ){
+    if(key==="r"&&gameOver){
 
       reset();
       return;
+
     }
 
 
-    if(
-      key==="q" &&
-      !e.repeat &&
-      !paused
-    ){
+    if(key==="q"&&!e.repeat){
 
       throwBomb();
+
     }
 
 
-    if(upgradeOpen&&!paused){
+    if(upgradeOpen){
 
       if(e.key==="1")
         buyUpgrade("health");
@@ -636,6 +582,7 @@ window.addEventListener(
 
       if(e.key==="4")
         buyUpgrade("nothing");
+
     }
 
   }
@@ -646,9 +593,7 @@ window.addEventListener(
   "keyup",
   e=>{
 
-    keys[
-      e.key.toLowerCase()
-    ]=false;
+    keys[e.key.toLowerCase()]=false;
 
   }
 );
@@ -658,8 +603,7 @@ c.addEventListener(
   "mousemove",
   e=>{
 
-    const r=
-      c.getBoundingClientRect();
+    const r=c.getBoundingClientRect();
 
     mouse.x=
       (e.clientX-r.left)*
@@ -679,11 +623,7 @@ c.addEventListener(
 
     startMusic();
 
-    if(!paused&&!gameOver){
-
-      mouse.down=true;
-
-    }
+    mouse.down=true;
 
   }
 );
@@ -700,55 +640,35 @@ window.addEventListener(
 
 
 /* =========================
-   ENEMIES
+   GATE SPAWN
    ========================= */
+
+/*
+  Every enemy now starts at the gate.
+
+  The gate is on the right side of the
+  arena, so enemies enter from there.
+*/
+
+function getGateSpawn(){
+
+  return {
+    x:GATE.x-18,
+    y:
+      GATE.y+
+      20+
+      Math.random()*
+      (GATE.h-40)
+  };
+}
+
 
 function spawnEnemy(type="goblin"){
 
-  let x,y;
+  const spawn=getGateSpawn();
 
-
-  /*
-    Goblins ALWAYS enter through
-    the gate on the right side.
-  */
-
-  if(type==="goblin"){
-
-    x=GATE.x-28;
-    y=
-      GATE.y+20+
-      Math.random()*
-      (GATE.height-40);
-
-  }else{
-
-    /*
-      Ogres can still enter from the
-      arena edges, keeping them different
-      from normal goblins.
-    */
-
-    const side=
-      Math.floor(Math.random()*3);
-
-    if(side===0){
-
-      x=60;
-      y=90+Math.random()*420;
-
-    }else if(side===1){
-
-      x=70+Math.random()*720;
-      y=70;
-
-    }else{
-
-      x=70+Math.random()*720;
-      y=530;
-
-    }
-  }
+  const x=spawn.x;
+  const y=spawn.y;
 
 
   if(type==="ogre"){
@@ -760,9 +680,12 @@ function spawnEnemy(type="goblin"){
     enemies.push({
 
       type:"ogre",
+
       x,
       y,
+
       r:30,
+
       hp,
       maxHp:hp,
 
@@ -775,21 +698,27 @@ function spawnEnemy(type="goblin"){
 
       attack:0,
       burn:0,
-      burnTick:0
+      burnTick:0,
+
+      bossMark:0
 
     });
 
   }else{
 
     const hp=
-      45+wave*8;
+      45+
+      wave*8;
 
     enemies.push({
 
       type:"goblin",
+
       x,
       y,
+
       r:14,
+
       hp,
       maxHp:hp,
 
@@ -799,16 +728,7 @@ function spawnEnemy(type="goblin"){
 
       attack:0,
       burn:0,
-      burnTick:0,
-
-      /*
-        Small delay makes the goblins
-        visibly come through the gate.
-      */
-
-      gateDelay:
-        20+
-        Math.random()*25
+      burnTick:0
 
     });
 
@@ -846,7 +766,6 @@ function killEnemy(e){
   if(e.type==="ogre"){
 
     addCoins(7);
-
     score+=7;
 
     burst(
@@ -858,7 +777,6 @@ function killEnemy(e){
   }else{
 
     addCoins(1);
-
     score++;
 
     burst(
@@ -885,6 +803,7 @@ function shoot(){
   ){
 
     return;
+
   }
 
 
@@ -925,12 +844,14 @@ function shoot(){
 function spawnBombPickup(){
 
   const x=
-    75+
-    Math.random()*750;
+    ARENA.x+35+
+    Math.random()*
+    (ARENA.w-70);
 
   const y=
-    90+
-    Math.random()*420;
+    ARENA.y+45+
+    Math.random()*
+    (ARENA.h-90);
 
 
   bombPickups.push({
@@ -944,7 +865,6 @@ function spawnBombPickup(){
 
 
 const BOMB_THROW_DISTANCE=300;
-
 const BOMB_DISINTEGRATE_TIME=22;
 
 
@@ -958,6 +878,7 @@ function throwBomb(){
   ){
 
     return;
+
   }
 
 
@@ -1055,14 +976,12 @@ function explodeBomb(b){
         b.y-e.y
       );
 
-
     if(d<115){
 
       e.hp-=
         e.type==="ogre"
         ?e.maxHp*.5
         :e.maxHp*.75;
-
 
       e.burn=
         Math.max(
@@ -1084,7 +1003,6 @@ function explodeBomb(b){
 function damagePlayer(e){
 
   e.attack=45;
-
 
   if(e.type==="goblin"){
 
@@ -1109,6 +1027,7 @@ function damagePlayer(e){
       loseHeart();
 
     }
+
   }
 }
 
@@ -1120,7 +1039,6 @@ function loseHeart(){
   hearts--;
 
   heartRegen=30;
-
 
   if(hearts<=0){
 
@@ -1146,11 +1064,6 @@ function endGame(){
 
   gameOver=true;
 
-  paused=false;
-
-  pauseBtn.textContent="PAUSE";
-
-
   if(score>highscore){
 
     highscore=score;
@@ -1170,13 +1083,12 @@ function endGame(){
 
 function buyUpgrade(kind){
 
-  if(
-    kind==="nothing"
-  ){
+  if(kind==="nothing"){
 
     upgradeOpen=false;
 
     return;
+
   }
 
 
@@ -1186,6 +1098,7 @@ function buyUpgrade(kind){
   ){
 
     return;
+
   }
 
 
@@ -1278,193 +1191,138 @@ function rectPixel(
 
 
 /* =========================
-   DRAW GATE
+   GATE DRAWING
    ========================= */
 
 function drawGate(){
 
   /*
-    Gate frame.
+    Dark opening
   */
 
   rectPixel(
-    GATE.x-5,
-    GATE.y-5,
-    GATE.width+10,
-    GATE.height+10,
+    GATE.x-10,
+    GATE.y-10,
+    GATE.w+20,
+    GATE.h+20,
+    "#111"
+  );
+
+  rectPixel(
+    GATE.x,
+    GATE.y,
+    GATE.w,
+    GATE.h,
     "#171717"
   );
 
 
-  rectPixel(
-    GATE.x,
-    GATE.y,
-    GATE.width,
-    GATE.height,
-    "#252525"
-  );
-
-
   /*
-    Pixelated stone/metal frame.
+    Pixel stone frame
   */
 
   rectPixel(
-    GATE.x,
-    GATE.y,
-    7,
-    GATE.height,
+    GATE.x-10,
+    GATE.y-10,
+    10,
+    GATE.h+20,
     "#555"
   );
 
   rectPixel(
-    GATE.x+GATE.width-7,
-    GATE.y,
-    7,
-    GATE.height,
+    GATE.x+GATE.w,
+    GATE.y-10,
+    10,
+    GATE.h+20,
     "#555"
   );
 
   rectPixel(
-    GATE.x,
-    GATE.y,
-    GATE.width,
-    7,
+    GATE.x-10,
+    GATE.y-10,
+    GATE.w+20,
+    10,
     "#666"
   );
 
   rectPixel(
-    GATE.x,
-    GATE.y+GATE.height-7,
-    GATE.width,
-    7,
+    GATE.x-10,
+    GATE.y+GATE.h,
+    GATE.w+20,
+    10,
     "#444"
   );
 
 
   /*
-    Dark opening.
-  */
-
-  rectPixel(
-    GATE.x+8,
-    GATE.y+8,
-    GATE.width-16,
-    GATE.height-16,
-    "#090909"
-  );
-
-
-  /*
-    Vertical bars.
+    Pixelated iron bars
   */
 
   for(
-    let i=0;
-    i<5;
-    i++
+    let x=GATE.x+4;
+    x<GATE.x+GATE.w;
+    x+=10
   ){
 
-    const bx=
-      GATE.x+
-      10+
-      i*7;
-
     rectPixel(
-      bx,
-      GATE.y+10,
-      4,
-      GATE.height-20,
-      "#8a8a8a"
-    );
-
-    rectPixel(
-      bx+1,
-      GATE.y+10,
-      2,
-      GATE.height-20,
-      "#b0b0b0"
-    );
-
-  }
-
-
-  /*
-    Horizontal bars.
-  */
-
-  for(
-    let i=0;
-    i<4;
-    i++
-  ){
-
-    const by=
-      GATE.y+
-      25+
-      i*34;
-
-    rectPixel(
-      GATE.x+8,
-      by,
-      GATE.width-16,
+      x,
+      GATE.y+5,
       5,
-      "#777"
+      GATE.h-10,
+      "#999"
+    );
+
+    rectPixel(
+      x+1,
+      GATE.y+5,
+      2,
+      GATE.h-10,
+      "#d0d0d0"
     );
 
   }
 
 
   /*
-    Gate bolts.
+    Horizontal supports
   */
 
   rectPixel(
-    GATE.x+4,
-    GATE.y+14,
-    4,
-    4,
-    "#aaa"
+    GATE.x,
+    GATE.y+35,
+    GATE.w,
+    6,
+    "#777"
   );
 
   rectPixel(
-    GATE.x+GATE.width-8,
-    GATE.y+14,
-    4,
-    4,
-    "#aaa"
-  );
-
-  rectPixel(
-    GATE.x+4,
-    GATE.y+GATE.height-18,
-    4,
-    4,
-    "#aaa"
-  );
-
-  rectPixel(
-    GATE.x+GATE.width-8,
-    GATE.y+GATE.height-18,
-    4,
-    4,
-    "#aaa"
+    GATE.x,
+    GATE.y+85,
+    GATE.w,
+    6,
+    "#777"
   );
 
 
   /*
-    Green glow showing that this is
-    where the goblins enter.
+    Gate highlights
   */
 
   rectPixel(
-    GATE.x-3,
-    GATE.y+GATE.height/2-12,
-    3,
-    24,
-    "#3c8f3d"
+    GATE.x-5,
+    GATE.y+15,
+    4,
+    18,
+    "#888"
   );
 
+  rectPixel(
+    GATE.x+GATE.w+1,
+    GATE.y+65,
+    4,
+    18,
+    "#777"
+  );
 }
 
 
@@ -1472,11 +1330,7 @@ function drawGate(){
    HUD
    ========================= */
 
-function drawHeart(
-  x,
-  y,
-  full
-){
+function drawHeart(x,y,full){
 
   rectPixel(
     x+4,
@@ -1518,7 +1372,6 @@ function drawHeart(
       :"#3a3a3a"
   );
 
-
   if(!full){
 
     ctx.clearRect(
@@ -1532,10 +1385,7 @@ function drawHeart(
 }
 
 
-function drawCoin(
-  x,
-  y
-){
+function drawCoin(x,y){
 
   ctx.fillStyle="#f3c62e";
 
@@ -1546,7 +1396,6 @@ function drawCoin(
     16
   );
 
-
   ctx.fillStyle="#ffe875";
 
   ctx.fillRect(
@@ -1555,7 +1404,6 @@ function drawCoin(
     8,
     12
   );
-
 
   ctx.fillStyle="#b77b16";
 
@@ -1590,16 +1438,16 @@ function draw(){
 
 
   /*
-    Bigger arena.
+    Larger arena
   */
 
   ctx.fillStyle="#303030";
 
   ctx.fillRect(
-    ARENA.left,
-    ARENA.top,
-    ARENA.right-ARENA.left,
-    ARENA.bottom-ARENA.top
+    ARENA.x,
+    ARENA.y,
+    ARENA.w,
+    ARENA.h
   );
 
 
@@ -1608,31 +1456,32 @@ function draw(){
   ctx.lineWidth=6;
 
   ctx.strokeRect(
-    ARENA.left,
-    ARENA.top,
-    ARENA.right-ARENA.left,
-    ARENA.bottom-ARENA.top
+    ARENA.x,
+    ARENA.y,
+    ARENA.w,
+    ARENA.h
   );
 
 
-  /* Floor pixels */
+  /*
+    Floor pixels
+  */
 
   for(
     let i=0;
-    i<85;
+    i<100;
     i++
   ){
 
     const x=
-      ARENA.left+15+
+      ARENA.x+15+
       Math.random()*
-      (ARENA.right-ARENA.left-45);
+      (ARENA.w-30);
 
     const y=
-      ARENA.top+15+
+      ARENA.y+15+
       Math.random()*
-      (ARENA.bottom-ARENA.top-30);
-
+      (ARENA.h-30);
 
     rectPixel(
       x,
@@ -1646,9 +1495,9 @@ function draw(){
   }
 
 
-  /* =========================
-     GATE
-     ========================= */
+  /*
+    Gate is drawn behind enemies.
+  */
 
   drawGate();
 
@@ -1657,9 +1506,7 @@ function draw(){
      ENEMIES
      ========================= */
 
-  for(
-    const e of enemies
-  ){
+  for(const e of enemies){
 
     if(e.type==="goblin"){
 
@@ -1695,7 +1542,6 @@ function draw(){
           ?-1
           :1;
 
-
         rectPixel(
           e.x+dir*12,
           e.y-4,
@@ -1703,7 +1549,6 @@ function draw(){
           6,
           "#4ba747"
         );
-
 
         rectPixel(
           e.x+dir*20,
@@ -1734,7 +1579,6 @@ function draw(){
         "#4ba747"
       );
 
-
       rectPixel(
         e.x-8,
         e.y-6,
@@ -1750,7 +1594,6 @@ function draw(){
         3,
         "#111"
       );
-
 
       rectPixel(
         e.x-7,
@@ -1768,7 +1611,6 @@ function draw(){
         "#111"
       );
 
-
       rectPixel(
         e.x-5,
         e.y+8,
@@ -1779,6 +1621,10 @@ function draw(){
 
     }else{
 
+      /*
+        Ogre / mini boss
+      */
+
       rectPixel(
         e.x-25,
         e.y-25,
@@ -1786,7 +1632,6 @@ function draw(){
         48,
         "#397d36"
       );
-
 
       rectPixel(
         e.x-31,
@@ -1804,7 +1649,6 @@ function draw(){
         "#2b622c"
       );
 
-
       rectPixel(
         e.x-16,
         e.y-16,
@@ -1821,7 +1665,6 @@ function draw(){
         "#111"
       );
 
-
       rectPixel(
         e.x-13,
         e.y-10,
@@ -1837,7 +1680,6 @@ function draw(){
         8,
         "#111"
       );
-
 
       rectPixel(
         e.x-12,
@@ -1862,12 +1704,10 @@ function draw(){
           p.y-e.y
         )<105;
 
-
       const batDir=
         p.x<e.x
         ?-1
         :1;
-
 
       ctx.save();
 
@@ -1876,14 +1716,12 @@ function draw(){
         e.y
       );
 
-
       if(closeOgre){
 
         const swing=
           Math.sin(
             performance.now()/120
           )*.9;
-
 
         ctx.rotate(
           batDir*
@@ -1895,7 +1733,6 @@ function draw(){
         ctx.rotate(-0.65);
 
       }
-
 
       rectPixel(
         16,
@@ -1913,8 +1750,8 @@ function draw(){
         "#8d5b32"
       );
 
-
       ctx.restore();
+
     }
 
 
@@ -1927,7 +1764,6 @@ function draw(){
         7,
         "#ff8c22"
       );
-
 
       rectPixel(
         e.x+e.r-2,
@@ -1962,7 +1798,6 @@ function draw(){
       "#111"
     );
 
-
     rectPixel(
       bx,
       by,
@@ -1970,7 +1805,6 @@ function draw(){
       bh,
       "#542b2b"
     );
-
 
     rectPixel(
       bx,
@@ -1983,14 +1817,13 @@ function draw(){
       bh,
       "#55c84a"
     );
+
   }
 
 
   /* Bomb pickups */
 
-  for(
-    const bp of bombPickups
-  ){
+  for(const bp of bombPickups){
 
     rectPixel(
       bp.x-7,
@@ -2023,16 +1856,13 @@ function draw(){
       3,
       "#ddd"
     );
+
   }
 
 
-  /* =========================
-     THROWN BOMBS
-     ========================= */
+  /* Thrown bombs */
 
-  for(
-    const b of bombs
-  ){
+  for(const b of bombs){
 
     if(!b.exploded){
 
@@ -2082,13 +1912,11 @@ function draw(){
           progress
         );
 
-
       const size=
         7+
         Math.round(
           progress*5
         );
-
 
       rectPixel(
         b.x-size,
@@ -2097,7 +1925,6 @@ function draw(){
         size*2,
         "#111"
       );
-
 
       rectPixel(
         b.x-size+3,
@@ -2112,7 +1939,6 @@ function draw(){
         ),
         "#444"
       );
-
 
       if(
         Math.floor(
@@ -2138,7 +1964,6 @@ function draw(){
 
       }
 
-
       ctx.restore();
 
     }
@@ -2147,9 +1972,7 @@ function draw(){
 
   /* Fireballs */
 
-  for(
-    const b of balls
-  ){
+  for(const b of balls){
 
     rectPixel(
       b.x-6,
@@ -2174,21 +1997,19 @@ function draw(){
       7,
       "#ffe27a"
     );
+
   }
 
 
   /* Particles */
 
-  for(
-    const s of particles
-  ){
+  for(const s of particles){
 
     ctx.globalAlpha=
       Math.min(
         1,
         s.life/22
       );
-
 
     rectPixel(
       s.x,
@@ -2198,8 +2019,8 @@ function draw(){
       "#ff9c29"
     );
 
-
     ctx.globalAlpha=1;
+
   }
 
 
@@ -2222,7 +2043,6 @@ function draw(){
     "#b47b4e"
   );
 
-
   rectPixel(
     p.x-16,
     p.y-8,
@@ -2239,7 +2059,6 @@ function draw(){
     "#6f4933"
   );
 
-
   rectPixel(
     p.x-7,
     p.y-5,
@@ -2255,7 +2074,6 @@ function draw(){
     5,
     "#252525"
   );
-
 
   rectPixel(
     p.x-5,
@@ -2275,7 +2093,6 @@ function draw(){
 
   ctx.rotate(a);
 
-
   rectPixel(
     9,
     -3,
@@ -2283,7 +2100,6 @@ function draw(){
     6,
     "#7d4b28"
   );
-
 
   ctx.restore();
 
@@ -2293,16 +2109,13 @@ function draw(){
      ========================= */
 
   ctx.font="16px monospace";
-
   ctx.fillStyle="#fff";
-
 
   ctx.fillText(
     "SCORE "+score,
     25,
     25
   );
-
 
   ctx.fillText(
     "HIGH "+highscore,
@@ -2327,28 +2140,23 @@ function draw(){
 
 
   drawCoin(
-    780,
+    850,
     8
   );
 
-
   ctx.fillStyle="#fff";
-
-  ctx.font="16px monospace";
-
 
   ctx.fillText(
     "COINS",
-    802,
+    872,
     17
   );
-
 
   ctx.fillStyle="#ffe875";
 
   ctx.fillText(
     String(coins),
-    802,
+    872,
     33
   );
 
@@ -2357,7 +2165,7 @@ function draw(){
 
   rectPixel(
     25,
-    535,
+    575,
     22,
     22,
     "#111"
@@ -2365,7 +2173,7 @@ function draw(){
 
   rectPixel(
     28,
-    538,
+    578,
     16,
     16,
     "#444"
@@ -2373,7 +2181,7 @@ function draw(){
 
   rectPixel(
     32,
-    534,
+    574,
     8,
     5,
     "#777"
@@ -2381,65 +2189,62 @@ function draw(){
 
   rectPixel(
     40,
-    531,
+    571,
     7,
     3,
     "#ddd"
   );
-
 
   ctx.fillStyle="#fff";
 
   ctx.fillText(
     "x"+bombCount,
     52,
-    552
+    592
   );
 
 
   /* Fireball cooldown */
 
   rectPixel(
-    770,
-    538,
+    850,
+    575,
     18,
     18,
     "#d85b18"
   );
 
   rectPixel(
-    775,
-    534,
+    855,
+    571,
     8,
     25,
     "#ff9b25"
   );
 
   rectPixel(
-    777,
-    539,
+    857,
+    576,
     5,
     10,
     "#ffe27a"
   );
 
-
   ctx.fillStyle="#fff";
-
 
   ctx.fillText(
     fireCooldown>0
       ?(fireCooldown/60).toFixed(1)
       :"READY",
-    800,
-    552
+    875,
+    592
   );
 
 
   ctx.fillText(
     "WASD move • Mouse aim • Click fire • Q bomb • P pause",
     25,
-    582
+    635
   );
 
 
@@ -2452,7 +2257,7 @@ function draw(){
       )
     )+
     "s",
-    610,
+    700,
     25
   );
 
@@ -2465,7 +2270,7 @@ function draw(){
 
     ctx.fillStyle="#000";
 
-    ctx.globalAlpha=.72;
+    ctx.globalAlpha=.75;
 
     ctx.fillRect(
       0,
@@ -2476,27 +2281,24 @@ function draw(){
 
     ctx.globalAlpha=1;
 
-
     ctx.fillStyle="#fff";
 
-    ctx.font="42px monospace";
-
+    ctx.font="48px monospace";
 
     ctx.fillText(
       "PAUSED",
-      365,
-      270
+      400,
+      285
     );
-
 
     ctx.font="18px monospace";
 
-
     ctx.fillText(
-      "Click RESUME or press P",
-      315,
-      315
+      "Press P or click RESUME",
+      345,
+      325
     );
+
   }
 
 
@@ -2504,7 +2306,7 @@ function draw(){
      UPGRADE SCREEN
      ========================= */
 
-  if(upgradeOpen&&!paused){
+  if(upgradeOpen){
 
     ctx.fillStyle="#0a130d";
 
@@ -2519,80 +2321,50 @@ function draw(){
 
     ctx.globalAlpha=1;
 
-
     ctx.fillStyle="#fff";
 
     ctx.font="32px monospace";
 
-
     ctx.fillText(
       "CHOOSE YOUR UPGRADE",
-      245,
+      300,
       125
     );
 
-
     drawCoin(
-      365,
+      420,
       150
     );
-
 
     ctx.font="20px monospace";
 
     ctx.fillStyle="#ffe875";
 
-
     ctx.fillText(
       "COINS: "+coins,
-      390,
+      445,
       165
     );
-
 
     ctx.fillStyle="#fff";
 
     ctx.font="16px monospace";
 
-
     ctx.fillText(
       "Cost: "+
       upgradeCost+
       " coins   (1 / 2 / 3 / 4)",
-      285,
+      340,
       195
     );
 
 
     const cards=[
 
-      [
-        "1",
-        "HEALTH",
-        "+20 MAX HP",
-        90
-      ],
-
-      [
-        "2",
-        "DAMAGE",
-        "+12 FIREBALL",
-        295
-      ],
-
-      [
-        "3",
-        "SPEED",
-        "+0.4 MOVE",
-        500
-      ],
-
-      [
-        "4",
-        "NOTHING",
-        "FREE",
-        705
-      ]
+      ["1","HEALTH","+20 MAX HP",80],
+      ["2","DAMAGE","+12 FIREBALL",295],
+      ["3","SPEED","+0.4 MOVE",510],
+      ["4","NOTHING","FREE",725]
 
     ];
 
@@ -2614,14 +2386,12 @@ function draw(){
         130
       );
 
-
       ctx.strokeStyle=
         t==="NOTHING"
         ?"#8ee889"
         :"#65b95b";
 
       ctx.lineWidth=4;
-
 
       ctx.strokeRect(
         x,
@@ -2630,11 +2400,9 @@ function draw(){
         130
       );
 
-
       ctx.fillStyle="#bdebb5";
 
       ctx.font="21px monospace";
-
 
       ctx.fillText(
         n+". "+t,
@@ -2642,16 +2410,13 @@ function draw(){
         275
       );
 
-
       ctx.font="14px monospace";
-
 
       ctx.fillText(
         d,
         x+25,
         310
       );
-
 
       ctx.fillText(
         t==="NOTHING"
@@ -2660,6 +2425,7 @@ function draw(){
         x+60,
         340
       );
+
     }
 
 
@@ -2667,12 +2433,12 @@ function draw(){
 
     ctx.font="14px monospace";
 
-
     ctx.fillText(
       "If you can't afford an upgrade, choose NOTHING.",
-      275,
+      320,
       405
     );
+
   }
 
 
@@ -2695,37 +2461,33 @@ function draw(){
 
     ctx.globalAlpha=1;
 
-
     ctx.fillStyle="#fff";
 
     ctx.font="42px monospace";
 
-
     ctx.fillText(
       "GAME OVER",
-      350,
-      260
+      385,
+      285
     );
 
-
     ctx.font="18px monospace";
-
 
     ctx.fillText(
       "Score: "+
       score+
       "   High Score: "+
       highscore,
-      320,
-      300
+      350,
+      325
     );
-
 
     ctx.fillText(
       "Press R to restart",
-      355,
-      340
+      385,
+      365
     );
+
   }
 }
 
@@ -2739,7 +2501,10 @@ function loop(){
   requestAnimationFrame(loop);
 
 
-  if(!gameOver&&!paused){
+  if(
+    !gameOver&&
+    !paused
+  ){
 
     if(!upgradeOpen){
 
@@ -2749,7 +2514,6 @@ function loop(){
       /* Bomb spawning */
 
       bombSpawnTimer-=1/60;
-
 
       if(bombSpawnTimer<=0){
 
@@ -2801,7 +2565,9 @@ function loop(){
             );
 
           }
+
         }
+
       }
 
 
@@ -2835,7 +2601,9 @@ function loop(){
       }
 
 
-      /* Bosses */
+      /* =========================
+         MINI BOSSES
+         ========================= */
 
       const bossMark=
         Math.floor(
@@ -2844,10 +2612,10 @@ function loop(){
 
 
       if(
-        bossMark>0 &&
+        bossMark>0&&
         !enemies.some(
           e=>
-            e.type==="ogre" &&
+            e.type==="ogre"&&
             e.bossMark===bossMark
         )
       ){
@@ -2864,23 +2632,28 @@ function loop(){
           window.lastBossMark
         ){
 
-          spawnEnemy("ogre");
+          /*
+            spawnEnemy("ogre") now
+            automatically uses the gate.
+          */
 
+          spawnEnemy("ogre");
 
           enemies[
             enemies.length-1
-          ].bossMark=
-            bossMark;
-
+          ].bossMark=bossMark;
 
           window.lastBossMark=
             bossMark;
 
         }
+
       }
 
 
-      /* Movement */
+      /* =========================
+         MOVEMENT
+         ========================= */
 
       let dx=
         (
@@ -2923,27 +2696,31 @@ function loop(){
         dx/m*
         p.speed;
 
-
       p.y+=
         dy/m*
         p.speed;
 
 
+      /*
+        Keep player inside the new
+        larger arena and away from
+        the gate wall.
+      */
+
       p.x=
         Math.max(
-          45,
+          ARENA.x+20,
           Math.min(
-            845,
+            ARENA.x+ARENA.w-25,
             p.x
           )
         );
 
-
       p.y=
         Math.max(
-          55,
+          ARENA.y+20,
           Math.min(
-            545,
+            ARENA.y+ARENA.h-25,
             p.y
           )
         );
@@ -2982,10 +2759,10 @@ function loop(){
         balls.filter(
           b=>
             b.life>0&&
-            b.x>ARENA.left&&
-            b.x<ARENA.right&&
-            b.y>ARENA.top&&
-            b.y<ARENA.bottom
+            b.x>ARENA.x&&
+            b.x<ARENA.x+ARENA.w&&
+            b.y>ARENA.y&&
+            b.y<ARENA.y+ARENA.h
         );
 
 
@@ -3034,22 +2811,22 @@ function loop(){
                   e.r+b.r
               );
 
-
             if(hit){
 
               explodeBomb(b);
 
             }
+
           }
 
 
           if(
             !b.exploded&&
             (
-              b.x<=ARENA.left||
-              b.x>=ARENA.right||
-              b.y<=ARENA.top||
-              b.y>=ARENA.bottom
+              b.x<=ARENA.x||
+              b.x>=ARENA.x+ARENA.w||
+              b.y<=ARENA.y||
+              b.y>=ARENA.y+ARENA.h
             )
           ){
 
@@ -3057,12 +2834,12 @@ function loop(){
 
           }
 
-
         }else{
 
           b.disintegrate--;
 
         }
+
       }
 
 
@@ -3082,44 +2859,26 @@ function loop(){
         const e of enemies
       ){
 
-        /*
-          Goblins pause briefly after
-          coming through the gate.
-        */
+        const dx=
+          p.x-e.x;
 
-        if(
-          e.type==="goblin"&&
-          e.gateDelay>0
-        ){
+        const dy=
+          p.y-e.y;
 
-          e.gateDelay--;
-
-        }else{
-
-          const dx=
-            p.x-e.x;
-
-          const dy=
-            p.y-e.y;
+        const d=
+          Math.hypot(
+            dx,
+            dy
+          )||1;
 
 
-          const d=
-            Math.hypot(
-              dx,
-              dy
-            )||1;
+        e.x+=
+          dx/d*
+          e.speed;
 
-
-          e.x+=
-            dx/d*
-            e.speed;
-
-
-          e.y+=
-            dy/d*
-            e.speed;
-
-        }
+        e.y+=
+          dy/d*
+          e.speed;
 
 
         if(e.attack>0){
@@ -3129,21 +2888,8 @@ function loop(){
         }
 
 
-        const dxCombat=
-          p.x-e.x;
-
-        const dyCombat=
-          p.y-e.y;
-
-        const dCombat=
-          Math.hypot(
-            dxCombat,
-            dyCombat
-          )||1;
-
-
         if(
-          dCombat<e.r+14&&
+          d<e.r+14&&
           e.attack<=0
         ){
 
@@ -3169,9 +2915,7 @@ function loop(){
             const impactX=b.x;
             const impactY=b.y;
 
-
             e.hp-=p.damage;
-
 
             e.burn=
               Math.max(
@@ -3179,11 +2923,9 @@ function loop(){
                 42
               );
 
-
             e.burnTick=0;
 
             b.life=0;
-
 
             burst(
               impactX,
@@ -3213,19 +2955,20 @@ function loop(){
                     p.damage*.45
                   );
 
-
                 other.burn=
                   Math.max(
                     other.burn,
                     42
                   );
 
-
                 other.burnTick=0;
 
               }
+
             }
+
           }
+
         }
 
 
@@ -3237,7 +2980,6 @@ function loop(){
 
           e.burnTick++;
 
-
           if(
             e.burnTick%7===0
           ){
@@ -3245,7 +2987,9 @@ function loop(){
             e.hp-=2.5;
 
           }
+
         }
+
       }
 
 
@@ -3256,11 +3000,9 @@ function loop(){
           e=>e.hp<=0
         );
 
-
       dead.forEach(
         killEnemy
       );
-
 
       enemies=
         enemies.filter(
@@ -3280,7 +3022,6 @@ function loop(){
 
       }
 
-
       particles=
         particles.filter(
           s=>s.life>0
@@ -3293,7 +3034,6 @@ function loop(){
 
         heartRegen-=1/60;
 
-
         if(
           heartRegen<=0
         ){
@@ -3301,12 +3041,16 @@ function loop(){
           regainHeart();
 
         }
+
       }
+
     }
+
   }
 
 
   draw();
+
 }
 
 
