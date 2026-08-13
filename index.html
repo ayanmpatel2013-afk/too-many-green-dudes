@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html>
 <head>
 <meta charset="utf-8">
@@ -12,7 +13,6 @@ html,body{
   background:#252525;
   font-family:monospace;
 }
-
 canvas{
   display:block;
   margin:auto;
@@ -20,12 +20,10 @@ canvas{
   image-rendering:crisp-edges;
   cursor:crosshair;
 }
-
 button{
   font-family:monospace;
   cursor:pointer;
 }
-
 #fullscreenBtn{
   position:fixed;
   top:10px;
@@ -37,11 +35,7 @@ button{
   border:2px solid #65b95b;
   font-size:14px;
 }
-
-#fullscreenBtn:hover{
-  background:#2c5a2f;
-}
-
+#fullscreenBtn:hover{background:#2c5a2f}
 #pauseBtn{
   position:fixed;
   top:10px;
@@ -53,17 +47,14 @@ button{
   border:2px solid #d6b85a;
   font-size:14px;
 }
-
-#pauseBtn:hover{
-  background:#594728;
-}
+#pauseBtn:hover{background:#594728}
 </style>
+
 </head>
 
 <body>
 
-<button id="pauseBtn">PAUSE</button>
-<button id="fullscreenBtn">FULLSCREEN</button>
+<button id="pauseBtn">PAUSE</button> <button id="fullscreenBtn">FULLSCREEN</button>
 
 <canvas id="game" width="900" height="600"></canvas>
 
@@ -71,7 +62,6 @@ button{
 
 const c=document.getElementById("game");
 const ctx=c.getContext("2d");
-
 ctx.imageSmoothingEnabled=false;
 
 const W=900,H=600;
@@ -115,10 +105,6 @@ let goblinHits=0;
 let ogreHits=0;
 let hearts=3;
 let heartRegen=0;
-
-/* DAMAGE SHIELD */
-let shieldTimer=0;
-const SHIELD_DURATION=180; // 3 seconds at 60 FPS
 
 let fireCooldown=0;
 
@@ -470,7 +456,6 @@ fullscreenBtn.addEventListener(
 
         fullscreenBtn.textContent=
           "FULLSCREEN";
-
       }
 
     }catch(err){
@@ -479,9 +464,7 @@ fullscreenBtn.addEventListener(
         "Fullscreen unavailable:",
         err
       );
-
     }
-
   }
 );
 
@@ -576,8 +559,6 @@ function reset(){
   hearts=3;
   heartRegen=0;
 
-  shieldTimer=0;
-
   fireCooldown=0;
 
   bombCount=0;
@@ -616,7 +597,6 @@ window.addEventListener(
 
       reset();
       return;
-
     }
 
     if(
@@ -641,7 +621,6 @@ window.addEventListener(
 
       if(e.key==="4")
         buyUpgrade("nothing");
-
     }
 
   }
@@ -715,7 +694,6 @@ function spawnEnemy(type="goblin"){
   ){
 
     return;
-
   }
 
   const pos=gateSpawnPosition();
@@ -802,7 +780,6 @@ function spawnEnemy(type="goblin"){
     });
 
   }
-
 }
 
 function spawnWave(n){
@@ -818,7 +795,6 @@ function spawnWave(n){
     spawnEnemy("goblin");
 
   }
-
 }
 
 function spawnBigBoss(){
@@ -840,7 +816,7 @@ function spawnBigBoss(){
     hp:2400,
     maxHp:2400,
 
-    /* BIG BOSS SPEED = 3.5 */
+    /* Big Boss speed changed to 3.5 */
     speed:3.5,
 
     attack:0,
@@ -907,9 +883,7 @@ function defeatBigBoss(){
 }
 
 function addCoins(n){
-
   coins+=n;
-
 }
 
 function killEnemy(e){
@@ -937,7 +911,6 @@ function killEnemy(e){
     );
 
   }
-
 }
 
 function shoot(){
@@ -950,7 +923,6 @@ function shoot(){
   ){
 
     return;
-
   }
 
   const a=
@@ -978,7 +950,6 @@ function shoot(){
   fireCooldown=60;
 
   playFireballSound();
-
 }
 
 function spawnBombPickup(){
@@ -1001,7 +972,6 @@ function spawnBombPickup(){
     life:7
 
   });
-
 }
 
 const BOMB_THROW_DISTANCE=300;
@@ -1017,7 +987,6 @@ function throwBomb(){
   ){
 
     return;
-
   }
 
   const a=
@@ -1052,7 +1021,6 @@ function throwBomb(){
     rotation:0
 
   });
-
 }
 
 function explodeBomb(b){
@@ -1120,7 +1088,6 @@ function explodeBomb(b){
         );
 
     }
-
   }
 
   for(
@@ -1149,24 +1116,10 @@ function explodeBomb(b){
       e.burnTick=0;
 
     }
-
   }
-
 }
 
 function damagePlayer(e){
-
-  /*
-    While the blue shield is active,
-    enemy attacks cannot hurt the player.
-  */
-  if(shieldTimer>0){
-
-    e.attack=45;
-
-    return;
-
-  }
 
   e.attack=45;
 
@@ -1177,7 +1130,6 @@ function damagePlayer(e){
     if(goblinHits>=4){
 
       goblinHits=0;
-
       loseHeart();
 
     }
@@ -1189,38 +1141,23 @@ function damagePlayer(e){
     if(ogreHits>=2){
 
       ogreHits=0;
-
       loseHeart();
 
     }
-
   }
-
 }
 
 function loseHeart(){
 
   if(hearts<=0)return;
 
-  /*
-    Losing a heart activates:
-    - 3 second invincibility
-    - blue pixel shield
-    - 2x movement speed
-  */
   hearts--;
 
   heartRegen=30;
 
-  shieldTimer=
-    SHIELD_DURATION;
-
   if(hearts<=0){
-
     endGame();
-
   }
-
 }
 
 function regainHeart(){
@@ -1231,7 +1168,6 @@ function regainHeart(){
     heartRegen=0;
 
   }
-
 }
 
 function endGame(){
@@ -1248,7 +1184,6 @@ function endGame(){
     );
 
   }
-
 }
 
 function buyUpgrade(kind){
@@ -1256,7 +1191,6 @@ function buyUpgrade(kind){
   if(kind==="nothing"){
 
     upgradeOpen=false;
-
     return;
 
   }
@@ -1285,15 +1219,11 @@ function buyUpgrade(kind){
   }
 
   if(kind==="damage"){
-
     p.damage+=12;
-
   }
 
   if(kind==="speed"){
-
     p.speed+=.4;
-
   }
 
   upgradeCounts[kind]++;
@@ -1301,7 +1231,6 @@ function buyUpgrade(kind){
   upgradeCost+=10;
 
   upgradeOpen=false;
-
 }
 
 function burst(x,y,n=8){
@@ -1328,7 +1257,6 @@ function burst(x,y,n=8){
     });
 
   }
-
 }
 
 function rectPixel(
@@ -1347,7 +1275,6 @@ function rectPixel(
     w,
     h
   );
-
 }
 
 function drawGate(){
@@ -1431,7 +1358,6 @@ function drawGate(){
     12,
     "#333"
   );
-
 }
 
 function drawBigBoss(){
@@ -1686,7 +1612,6 @@ function drawBigBoss(){
     bh,
     "#e33b3b"
   );
-
 }
 
 function drawHeart(
@@ -1745,7 +1670,6 @@ function drawHeart(
     );
 
   }
-
 }
 
 function drawCoin(
@@ -1786,7 +1710,6 @@ function drawCoin(
     2,
     10
   );
-
 }
 
 function draw(){
@@ -1841,12 +1764,11 @@ function draw(){
         ?"#353535"
         :"#3b3b3b"
     );
-
   }
 
   /*
     LEFT SIDE INFORMATION PANEL
-    OUTSIDE THE ARENA
+    This sits outside the arena.
   */
 
   ctx.fillStyle="#202020";
@@ -2185,7 +2107,6 @@ function draw(){
       );
 
       ctx.restore();
-
     }
 
     if(e.burn>0){
@@ -2248,7 +2169,6 @@ function draw(){
       bh,
       "#55c84a"
     );
-
   }
 
   drawBigBoss();
@@ -2288,7 +2208,6 @@ function draw(){
       3,
       "#ddd"
     );
-
   }
 
   for(
@@ -2398,7 +2317,6 @@ function draw(){
       ctx.restore();
 
     }
-
   }
 
   for(
@@ -2428,7 +2346,6 @@ function draw(){
       7,
       "#ffe27a"
     );
-
   }
 
   for(
@@ -2450,7 +2367,6 @@ function draw(){
     );
 
     ctx.globalAlpha=1;
-
   }
 
   const a=
@@ -2525,218 +2441,6 @@ function draw(){
   );
 
   ctx.restore();
-
-  /*
-    BLUE PIXELATED SHIELD
-    Appears when a heart is lost.
-  */
-
-  if(shieldTimer>0){
-
-    const fade=
-      Math.min(
-        1,
-        shieldTimer/35
-      );
-
-    ctx.save();
-
-    ctx.globalAlpha=
-      .25+
-      fade*.55;
-
-    rectPixel(
-      p.x-20,
-      p.y-26,
-      40,
-      4,
-      "#4da6ff"
-    );
-
-    rectPixel(
-      p.x-26,
-      p.y-20,
-      6,
-      40,
-      "#4da6ff"
-    );
-
-    rectPixel(
-      p.x+20,
-      p.y-20,
-      6,
-      40,
-      "#4da6ff"
-    );
-
-    rectPixel(
-      p.x-20,
-      p.y+22,
-      40,
-      4,
-      "#4da6ff"
-    );
-
-    rectPixel(
-      p.x-23,
-      p.y-23,
-      9,
-      5,
-      "#80c4ff"
-    );
-
-    rectPixel(
-      p.x+14,
-      p.y-23,
-      9,
-      5,
-      "#80c4ff"
-    );
-
-    rectPixel(
-      p.x-23,
-      p.y+18,
-      9,
-      5,
-      "#80c4ff"
-    );
-
-    rectPixel(
-      p.x+14,
-      p.y+18,
-      9,
-      5,
-      "#80c4ff"
-    );
-
-    rectPixel(
-      p.x-27,
-      p.y-12,
-      4,
-      24,
-      "#80c4ff"
-    );
-
-    rectPixel(
-      p.x+23,
-      p.y-12,
-      4,
-      24,
-      "#80c4ff"
-    );
-
-    ctx.restore();
-
-  }
-
-  /*
-    RED SCREEN CORNERS
-    Only appear with one heart left.
-  */
-
-  if(hearts===1){
-
-    const pulse=
-      .15+
-      Math.sin(
-        performance.now()/180
-      )*.035;
-
-    ctx.save();
-
-    ctx.globalAlpha=pulse;
-
-    let g=
-      ctx.createLinearGradient(
-        0,
-        0,
-        0,
-        150
-      );
-
-    g.addColorStop(
-      0,
-      "red"
-    );
-
-    g.addColorStop(
-      1,
-      "rgba(255,0,0,0)"
-    );
-
-    ctx.fillStyle=g;
-
-    ctx.fillRect(
-      0,
-      0,
-      W,
-      150
-    );
-
-    ctx.fillRect(
-      0,
-      H-150,
-      W,
-      150
-    );
-
-    g=
-      ctx.createLinearGradient(
-        0,
-        0,
-        150,
-        0
-      );
-
-    g.addColorStop(
-      0,
-      "red"
-    );
-
-    g.addColorStop(
-      1,
-      "rgba(255,0,0,0)"
-    );
-
-    ctx.fillStyle=g;
-
-    ctx.fillRect(
-      0,
-      0,
-      150,
-      H
-    );
-
-    g=
-      ctx.createLinearGradient(
-        W,
-        0,
-        W-150,
-        0
-      );
-
-    g.addColorStop(
-      0,
-      "red"
-    );
-
-    g.addColorStop(
-      1,
-      "rgba(255,0,0,0)"
-    );
-
-    ctx.fillStyle=g;
-
-    ctx.fillRect(
-      W-150,
-      0,
-      150,
-      H
-    );
-
-    ctx.restore();
-
-  }
 
   ctx.font="16px monospace";
   ctx.fillStyle="#fff";
@@ -2869,21 +2573,6 @@ function draw(){
     585
   );
 
-  if(shieldTimer>0){
-
-    ctx.fillStyle="#80c4ff";
-    ctx.font="13px monospace";
-
-    ctx.fillText(
-      "SHIELD "+
-      (shieldTimer/60).toFixed(1)+
-      "s",
-      15,
-      220
-    );
-
-  }
-
   if(bossCountdown>0){
 
     ctx.fillStyle="#120000";
@@ -2927,7 +2616,6 @@ function draw(){
     );
 
     ctx.textAlign="left";
-
   }
 
   if(upgradeOpen){
@@ -3065,7 +2753,6 @@ function draw(){
         x+60,
         340
       );
-
     }
 
     ctx.fillStyle="#fff";
@@ -3076,7 +2763,6 @@ function draw(){
       275,
       405
     );
-
   }
 
   if(paused){
@@ -3113,7 +2799,6 @@ function draw(){
     );
 
     ctx.textAlign="left";
-
   }
 
   if(gameOver){
@@ -3155,9 +2840,7 @@ function draw(){
       355,
       340
     );
-
   }
-
 }
 
 function loop(){
@@ -3194,8 +2877,7 @@ function loop(){
         newValue>=1
       ){
 
-        bossCountdownValue=
-          newValue;
+        bossCountdownValue=newValue;
 
       }
 
@@ -3209,17 +2891,6 @@ function loop(){
     }
 
     elapsed+=1/60;
-
-    /*
-      Shield timer counts down for exactly
-      3 seconds at 60 FPS.
-    */
-
-    if(shieldTimer>0){
-
-      shieldTimer--;
-
-    }
 
     const newGoblinBuff=
       Math.floor(
@@ -3251,7 +2922,8 @@ function loop(){
         )||1;
 
       /*
-        BIG BOSS SPEED = 3.5
+        Big Boss speed = 3.5.
+        Player base speed = 3.2.
       */
 
       bigBoss.x+=
@@ -3263,9 +2935,7 @@ function loop(){
         bigBoss.speed;
 
       if(bigBoss.attack>0){
-
         bigBoss.attack--;
-
       }
 
       if(
@@ -3274,17 +2944,7 @@ function loop(){
       ){
 
         bigBoss.attack=35;
-
-        /*
-          Shield prevents this from actually
-          taking another heart.
-        */
-
-        if(shieldTimer<=0){
-
-          loseHeart();
-
-        }
+        loseHeart();
 
       }
 
@@ -3355,7 +3015,6 @@ function loop(){
       if(bombSpawnTimer<=0){
 
         spawnBombPickup();
-
         bombSpawnTimer=20;
 
       }
@@ -3419,7 +3078,6 @@ function loop(){
       if(newWave>wave){
 
         wave=newWave;
-
         spawnWave(wave);
 
       }
@@ -3505,24 +3163,13 @@ function loop(){
           dy
         )||1;
 
-      /*
-        2X SPEED BOOST WHILE SHIELD IS ACTIVE.
-      */
-
-      const speedMultiplier=
-        shieldTimer>0
-        ?2
-        :1;
-
       p.x+=
         dx/m*
-        p.speed*
-        speedMultiplier;
+        p.speed;
 
       p.y+=
         dy/m*
-        p.speed*
-        speedMultiplier;
+        p.speed;
 
       p.x=
         Math.max(
@@ -3543,15 +3190,11 @@ function loop(){
         );
 
       if(mouse.down){
-
         shoot();
-
       }
 
       if(fireCooldown>0){
-
         fireCooldown--;
-
       }
 
       for(
@@ -3590,7 +3233,6 @@ function loop(){
             );
 
           b.life--;
-
           b.rotation+=0.15;
 
           if(
@@ -3615,9 +3257,7 @@ function loop(){
               );
 
             if(hit){
-
               explodeBomb(b);
-
             }
 
           }
@@ -3676,9 +3316,7 @@ function loop(){
           e.speed;
 
         if(e.attack>0){
-
           e.attack--;
-
         }
 
         if(
