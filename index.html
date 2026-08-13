@@ -22,12 +22,6 @@ canvas{
   cursor:crosshair;
 }
 
-button{
-  font-family:monospace;
-  font-size:14px;
-  cursor:pointer;
-}
-
 #fullscreenBtn,
 #pauseBtn{
   position:fixed;
@@ -37,14 +31,17 @@ button{
   background:#1e3d20;
   color:#fff;
   border:2px solid #65b95b;
-}
-
-#fullscreenBtn{
-  right:10px;
+  font-family:monospace;
+  font-size:14px;
+  cursor:pointer;
 }
 
 #pauseBtn{
   right:145px;
+}
+
+#fullscreenBtn{
+  right:10px;
 }
 
 #fullscreenBtn:hover,
@@ -70,21 +67,41 @@ ctx.imageSmoothingEnabled=false;
 
 const W=900,H=600;
 
-
 /* =========================
-   ARENA
+   BIGGER ARENA
    ========================= */
 
 const ARENA={
   left:25,
   top:45,
   right:875,
-  bottom:555
+  bottom:570
 };
 
 
 /* =========================
-   INPUT
+   GATE
+   ========================= */
+
+const GATE={
+  x:855,
+  y:270,
+  width:20,
+  height:120
+};
+
+
+/* =========================
+   BIG BOSS
+   ========================= */
+
+const BIG_BOSS_HP=5000;
+const BIG_BOSS_SPEED=1.7;
+const BIG_BOSS_INTERVAL=200;
+
+
+/* =========================
+   GAME STATE
    ========================= */
 
 let keys={};
@@ -95,12 +112,8 @@ let mouse={
   down:false
 };
 
-
-/* =========================
-   GAME STATE
-   ========================= */
-
-let p,enemies,balls,particles,score,coins,wave,elapsed,gameOver,upgradeOpen,nextUpgrade;
+let p,enemies,balls,particles,score,coins,wave,elapsed,
+    gameOver,upgradeOpen,nextUpgrade;
 
 let upgradeCost=10;
 
@@ -126,30 +139,14 @@ let paused=false;
 
 
 /* =========================
-   BIG BOSS
+   BIG BOSS STATE
    ========================= */
 
-let bigBoss=null;
-
-let bossCountdownActive=false;
-let bossCountdown=0;
-let bossCountdownTimer=0;
-
-let nextBigBossTime=200;
-
-let bossDefeatedCount=0;
-
-
-/* =========================
-   GATE
-   ========================= */
-
-const GATE_X=835;
-const GATE_Y=265;
-const GATE_W=55;
-const GATE_H=150;
-
-let gateAnimation=0;
+let bigBossActive=false;
+let bigBossCountdown=false;
+let bigBossCountdownTimer=0;
+let nextBigBossTime=BIG_BOSS_INTERVAL;
+let bigBossNumber=0;
 
 
 /* =========================
@@ -172,10 +169,11 @@ let musicStep=0;
 
 
 /*
-  EVERYTHING IS 2X LOUDER.
+  Everything that uses one of these
+  sound volume values is now 2x louder.
 */
 
-const AUDIO_VOLUME_MULTIPLIER=2;
+const SOUND_MULTIPLIER=2;
 
 
 function startMusic(){
@@ -241,7 +239,7 @@ function playFireballSound(){
   );
 
   gain.gain.exponentialRampToValueAtTime(
-    0.035* AUDIO_VOLUME_MULTIPLIER,
+    0.035*SOUND_MULTIPLIER,
     now+0.01
   );
 
@@ -259,7 +257,7 @@ function playFireballSound(){
 
 
 /* =========================
-   BOMB SOUND
+   BOMB EXPLOSION SOUND
    ========================= */
 
 function playBombExplosionSound(){
@@ -293,7 +291,7 @@ function playBombExplosionSound(){
   );
 
   boomGain.gain.exponentialRampToValueAtTime(
-    0.12*AUDIO_VOLUME_MULTIPLIER,
+    0.12*SOUND_MULTIPLIER,
     now+0.015
   );
 
@@ -333,7 +331,7 @@ function playBombExplosionSound(){
   );
 
   crackGain.gain.exponentialRampToValueAtTime(
-    0.055*AUDIO_VOLUME_MULTIPLIER,
+    0.055*SOUND_MULTIPLIER,
     now+0.005
   );
 
@@ -359,7 +357,7 @@ function playBombExplosionSound(){
   click.frequency.value=1400;
 
   clickGain.gain.setValueAtTime(
-    0.025*AUDIO_VOLUME_MULTIPLIER,
+    0.025*SOUND_MULTIPLIER,
     now
   );
 
@@ -377,64 +375,12 @@ function playBombExplosionSound(){
 
 
 /* =========================
-   BOSS SOUND
-   ========================= */
-
-function playBossSound(){
-
-  if(!audioCtx)return;
-
-  const now=audioCtx.currentTime;
-
-  const osc=audioCtx.createOscillator();
-  const gain=audioCtx.createGain();
-
-  osc.type="sawtooth";
-
-  osc.frequency.setValueAtTime(
-    75,
-    now
-  );
-
-  osc.frequency.exponentialRampToValueAtTime(
-    28,
-    now+0.8
-  );
-
-  gain.gain.setValueAtTime(
-    0.0001,
-    now
-  );
-
-  gain.gain.exponentialRampToValueAtTime(
-    0.22*AUDIO_VOLUME_MULTIPLIER,
-    now+0.05
-  );
-
-  gain.gain.exponentialRampToValueAtTime(
-    0.0001,
-    now+0.9
-  );
-
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-
-  osc.start(now);
-  osc.stop(now+0.95);
-}
-
-
-/* =========================
    MUSIC
    ========================= */
 
 function playMusicStep(){
 
-  if(
-    !audioCtx||
-    gameOver||
-    paused
-  )return;
+  if(!audioCtx||gameOver||paused)return;
 
   const notes=[
     110,130.81,146.83,164.81,
@@ -472,7 +418,7 @@ function playMusicStep(){
   );
 
   gain.gain.exponentialRampToValueAtTime(
-    0.065*AUDIO_VOLUME_MULTIPLIER,
+    0.065*SOUND_MULTIPLIER,
     now+0.02
   );
 
@@ -503,7 +449,7 @@ function playMusicStep(){
   );
 
   bassGain.gain.exponentialRampToValueAtTime(
-    0.075*AUDIO_VOLUME_MULTIPLIER,
+    0.075*SOUND_MULTIPLIER,
     now+0.02
   );
 
@@ -523,6 +469,38 @@ function playMusicStep(){
 
 
 /* =========================
+   PAUSE
+   ========================= */
+
+const pauseBtn=
+  document.getElementById("pauseBtn");
+
+
+function togglePause(){
+
+  if(gameOver||upgradeOpen)return;
+
+  paused=!paused;
+
+  pauseBtn.textContent=
+    paused
+    ?"RESUME"
+    :"PAUSE";
+}
+
+
+pauseBtn.addEventListener(
+  "click",
+  ()=>{
+
+    startMusic();
+    togglePause();
+
+  }
+);
+
+
+/* =========================
    FULLSCREEN
    ========================= */
 
@@ -530,6 +508,7 @@ const fullscreenBtn=
   document.getElementById(
     "fullscreenBtn"
   );
+
 
 fullscreenBtn.addEventListener(
   "click",
@@ -577,49 +556,14 @@ document.addEventListener(
 
 
 /* =========================
-   PAUSE
-   ========================= */
-
-const pauseBtn=
-  document.getElementById(
-    "pauseBtn"
-  );
-
-
-function togglePause(){
-
-  if(gameOver)return;
-
-  paused=!paused;
-
-  pauseBtn.textContent=
-    paused
-    ?"RESUME"
-    :"PAUSE";
-
-}
-
-
-pauseBtn.addEventListener(
-  "click",
-  ()=>{
-
-    startMusic();
-    togglePause();
-
-  }
-);
-
-
-/* =========================
    RESET
    ========================= */
 
 function reset(){
 
   p={
-    x:430,
-    y:300,
+    x:450,
+    y:310,
     speed:3.2,
     damage:28,
     maxHp:100,
@@ -635,7 +579,6 @@ function reset(){
   wave=1;
   elapsed=0;
   gameOver=false;
-  paused=false;
 
   upgradeOpen=false;
 
@@ -662,16 +605,13 @@ function reset(){
   bombs=[];
   bombSpawnTimer=20;
 
-  bigBoss=null;
+  paused=false;
 
-  bossCountdownActive=false;
-  bossCountdown=0;
-  bossCountdownTimer=0;
-
-  nextBigBossTime=200;
-  bossDefeatedCount=0;
-
-  gateAnimation=0;
+  bigBossActive=false;
+  bigBossCountdown=false;
+  bigBossCountdownTimer=0;
+  nextBigBossTime=BIG_BOSS_INTERVAL;
+  bigBossNumber=0;
 
   window.lastBossMark=0;
 
@@ -694,8 +634,7 @@ window.addEventListener(
 
     startMusic();
 
-    const key=
-      e.key.toLowerCase();
+    const key=e.key.toLowerCase();
 
     keys[key]=true;
 
@@ -703,13 +642,13 @@ window.addEventListener(
     if(key==="p"&&!e.repeat){
 
       togglePause();
-      return;
 
+      return;
     }
 
 
     if(
-      key==="r" &&
+      key==="r"&&
       gameOver
     ){
 
@@ -719,8 +658,9 @@ window.addEventListener(
 
 
     if(
-      key==="q" &&
-      !e.repeat
+      key==="q"&&
+      !e.repeat&&
+      !paused
     ){
 
       throwBomb();
@@ -740,7 +680,6 @@ window.addEventListener(
 
       if(e.key==="4")
         buyUpgrade("nothing");
-
     }
 
   }
@@ -801,21 +740,18 @@ window.addEventListener(
 
 
 /* =========================
-   GATE SPAWN
+   GATE SPAWN POSITION
    ========================= */
 
-function getGateSpawnPosition(){
+function gateSpawnPosition(){
 
   return {
-
-    x:GATE_X-12,
+    x:828,
     y:
-      GATE_Y+25+
-      Math.random()*
-      (GATE_H-50)
-
+      GATE.y+
+      GATE.height/2+
+      (Math.random()-.5)*55
   };
-
 }
 
 
@@ -825,11 +761,52 @@ function getGateSpawnPosition(){
 
 function spawnEnemy(type="goblin"){
 
-  const pos=
-    getGateSpawnPosition();
+  /*
+    Every enemy now enters through
+    the gate on the right.
+  */
+
+  const pos=gateSpawnPosition();
 
   const x=pos.x;
   const y=pos.y;
+
+
+  if(type==="bigboss"){
+
+    const hp=
+      BIG_BOSS_HP+
+      bigBossNumber*700;
+
+
+    enemies.push({
+
+      type:"bigboss",
+
+      x,
+      y,
+
+      r:45,
+
+      hp,
+      maxHp:hp,
+
+      speed:
+        BIG_BOSS_SPEED,
+
+      attack:0,
+      burn:0,
+      burnTick:0,
+
+      bossMark:
+        bigBossNumber,
+
+      scar:true
+
+    });
+
+    return;
+  }
 
 
   if(type==="ogre"){
@@ -859,9 +836,7 @@ function spawnEnemy(type="goblin"){
 
       attack:0,
       burn:0,
-      burnTick:0,
-
-      gateSpawn:true
+      burnTick:0
 
     });
 
@@ -888,23 +863,23 @@ function spawnEnemy(type="goblin"){
 
       attack:0,
       burn:0,
-      burnTick:0,
-
-      gateSpawn:true
+      burnTick:0
 
     });
 
   }
-
 }
 
 
+/* =========================
+   WAVES
+   ========================= */
+
 function spawnWave(n){
 
-  if(
-    bigBoss||
-    bossCountdownActive
-  )return;
+  if(bigBossActive||bigBossCountdown)
+    return;
+
 
   for(
     let i=0;
@@ -915,110 +890,11 @@ function spawnWave(n){
     spawnEnemy("goblin");
 
   }
-
 }
 
 
 /* =========================
-   BIG BOSS
-   ========================= */
-
-function spawnBigBoss(){
-
-  const pos=
-    getGateSpawnPosition();
-
-  const hp=
-    3200+
-    bossDefeatedCount*900+
-    Math.floor(elapsed/200)*400;
-
-  bigBoss={
-
-    type:"bigboss",
-
-    x:pos.x,
-    y:pos.y,
-
-    r:48,
-
-    hp:hp,
-    maxHp:hp,
-
-    speed:.30,
-
-    attack:0,
-
-    burn:0,
-    burnTick:0,
-
-    gateSpawn:true,
-
-    scarFlash:0
-
-  };
-
-
-  enemies=
-    enemies.filter(
-      e=>false
-    );
-
-
-  gateAnimation=1;
-
-  playBossSound();
-
-}
-
-
-function startBossCountdown(){
-
-  if(
-    bossCountdownActive||
-    bigBoss||
-    gameOver
-  )return;
-
-  bossCountdownActive=true;
-
-  bossCountdown=3;
-
-  bossCountdownTimer=1;
-
-}
-
-
-function updateBossCountdown(){
-
-  if(!bossCountdownActive)return;
-
-  bossCountdownTimer-=1/60;
-
-  if(
-    bossCountdownTimer<=0
-  ){
-
-    bossCountdown--;
-
-    bossCountdownTimer=1;
-
-
-    if(bossCountdown<=0){
-
-      bossCountdownActive=false;
-
-      spawnBigBoss();
-
-    }
-
-  }
-
-}
-
-
-/* =========================
-   SCORE / COINS
+   SCORE
    ========================= */
 
 function addCoins(n){
@@ -1029,6 +905,48 @@ function addCoins(n){
 
 
 function killEnemy(e){
+
+  if(e.type==="bigboss"){
+
+    addCoins(50);
+
+    score+=50;
+
+    bigBossActive=false;
+
+    burst(
+      e.x,
+      e.y,
+      60
+    );
+
+    for(
+      let i=0;
+      i<35;
+      i++
+    ){
+
+      particles.push({
+
+        x:e.x,
+        y:e.y,
+
+        vx:
+          (Math.random()-.5)*10,
+
+        vy:
+          (Math.random()-.5)*10,
+
+        life:
+          35+
+          Math.random()*25
+
+      });
+    }
+
+    return;
+  }
+
 
   if(e.type==="ogre"){
 
@@ -1055,58 +973,6 @@ function killEnemy(e){
     );
 
   }
-
-}
-
-
-function killBigBoss(){
-
-  if(!bigBoss)return;
-
-  score+=100;
-  coins+=50;
-
-  burst(
-    bigBoss.x,
-    bigBoss.y,
-    80
-  );
-
-  for(
-    let i=0;
-    i<50;
-    i++
-  ){
-
-    particles.push({
-
-      x:bigBoss.x,
-      y:bigBoss.y,
-
-      vx:
-        (Math.random()-.5)*10,
-
-      vy:
-        (Math.random()-.5)*10,
-
-      life:
-        25+
-        Math.random()*30
-
-    });
-
-  }
-
-
-  bigBoss=null;
-
-  bossDefeatedCount++;
-
-  nextBigBossTime=
-    Math.ceil(
-      elapsed/200
-    )*200+200;
-
 }
 
 
@@ -1120,8 +986,7 @@ function shoot(){
     fireCooldown>0||
     upgradeOpen||
     gameOver||
-    paused||
-    bossCountdownActive
+    paused
   ){
 
     return;
@@ -1165,12 +1030,14 @@ function shoot(){
 function spawnBombPickup(){
 
   const x=
-    75+
-    Math.random()*730;
+    ARENA.left+35+
+    Math.random()*
+    (ARENA.right-ARENA.left-100);
 
   const y=
-    90+
-    Math.random()*410;
+    ARENA.top+45+
+    Math.random()*
+    (ARENA.bottom-ARENA.top-100);
 
 
   bombPickups.push({
@@ -1180,7 +1047,6 @@ function spawnBombPickup(){
     life:7
 
   });
-
 }
 
 
@@ -1195,7 +1061,6 @@ function throwBomb(){
     gameOver||
     upgradeOpen||
     paused||
-    bossCountdownActive||
     bombCount<=0
   ){
 
@@ -1237,7 +1102,6 @@ function throwBomb(){
     rotation:0
 
   });
-
 }
 
 
@@ -1302,7 +1166,9 @@ function explodeBomb(b){
     if(d<115){
 
       e.hp-=
-        e.type==="ogre"
+        e.type==="bigboss"
+        ?e.maxHp*.18
+        :e.type==="ogre"
         ?e.maxHp*.5
         :e.maxHp*.75;
 
@@ -1316,33 +1182,7 @@ function explodeBomb(b){
       e.burnTick=0;
 
     }
-
   }
-
-
-  if(bigBoss){
-
-    const d=
-      Math.hypot(
-        b.x-bigBoss.x,
-        b.y-bigBoss.y
-      );
-
-    if(d<135){
-
-      bigBoss.hp-=
-        bigBoss.maxHp*.18;
-
-      bigBoss.burn=
-        Math.max(
-          bigBoss.burn,
-          42
-        );
-
-    }
-
-  }
-
 }
 
 
@@ -1378,9 +1218,7 @@ function damagePlayer(e){
       loseHeart();
 
     }
-
   }
-
 }
 
 
@@ -1398,7 +1236,6 @@ function loseHeart(){
     endGame();
 
   }
-
 }
 
 
@@ -1411,17 +1248,12 @@ function regainHeart(){
     heartRegen=0;
 
   }
-
 }
 
 
 function endGame(){
 
   gameOver=true;
-
-  paused=false;
-
-  pauseBtn.textContent="PAUSE";
 
 
   if(score>highscore){
@@ -1434,7 +1266,6 @@ function endGame(){
     );
 
   }
-
 }
 
 
@@ -1444,9 +1275,7 @@ function endGame(){
 
 function buyUpgrade(kind){
 
-  if(
-    kind==="nothing"
-  ){
+  if(kind==="nothing"){
 
     upgradeOpen=false;
 
@@ -1498,7 +1327,6 @@ function buyUpgrade(kind){
   upgradeCost+=10;
 
   upgradeOpen=false;
-
 }
 
 
@@ -1530,7 +1358,6 @@ function burst(x,y,n=8){
     });
 
   }
-
 }
 
 
@@ -1550,7 +1377,6 @@ function rectPixel(
     w,
     h
   );
-
 }
 
 
@@ -1570,7 +1396,7 @@ function drawHeart(
     10,
     4,
     full
-      ?" #e83e3e"
+      ?"#e83e3e"
       :"#3a3a3a"
   );
 
@@ -1603,19 +1429,6 @@ function drawHeart(
       ?"#e83e3e"
       :"#3a3a3a"
   );
-
-
-  if(!full){
-
-    ctx.clearRect(
-      x+5,
-      y+5,
-      8,
-      8
-    );
-
-  }
-
 }
 
 
@@ -1637,7 +1450,6 @@ function drawCoin(
     16
   );
 
-
   ctx.fillStyle="#ffe875";
 
   ctx.fillRect(
@@ -1646,7 +1458,6 @@ function drawCoin(
     8,
     12
   );
-
 
   ctx.fillStyle="#b77b16";
 
@@ -1663,7 +1474,6 @@ function drawCoin(
     2,
     10
   );
-
 }
 
 
@@ -1674,817 +1484,128 @@ function drawCoin(
 function drawGate(){
 
   /*
-    Stone wall around gate
+    Stone structure.
   */
 
   rectPixel(
-    GATE_X-8,
-    GATE_Y-15,
-    GATE_W+16,
-    12,
-    "#202020"
+    832,
+    245,
+    43,
+    150,
+    "#171717"
   );
 
   rectPixel(
-    GATE_X-8,
-    GATE_Y+GATE_H+3,
-    GATE_W+16,
-    12,
-    "#202020"
+    838,
+    250,
+    31,
+    140,
+    "#444"
   );
 
 
   /*
-    Gate opening
+    Dark opening.
   */
 
   rectPixel(
-    GATE_X,
-    GATE_Y,
-    GATE_W,
-    GATE_H,
-    "#111"
+    842,
+    258,
+    23,
+    124,
+    "#080808"
   );
 
 
   /*
-    Wooden/metal frame
+    Pixelated stone blocks.
   */
 
-  rectPixel(
-    GATE_X-6,
-    GATE_Y-8,
-    8,
-    GATE_H+16,
-    "#68452b"
-  );
+  rectPixel(832,245,12,10,"#606060");
+  rectPixel(852,245,10,10,"#505050");
+  rectPixel(867,245,8,10,"#666");
 
-  rectPixel(
-    GATE_X+GATE_W-2,
-    GATE_Y-8,
-    8,
-    GATE_H+16,
-    "#68452b"
-  );
+  rectPixel(832,385,12,10,"#555");
+  rectPixel(851,385,13,10,"#666");
+  rectPixel(867,385,8,10,"#4d4d4d");
 
 
   /*
-    Pixelated iron bars
+    Iron bars.
   */
 
   for(
-    let x=GATE_X+7;
-    x<GATE_X+GATE_W-2;
-    x+=10
+    let x=845;
+    x<=862;
+    x+=8
   ){
 
     rectPixel(
       x,
-      GATE_Y+5,
-      5,
-      GATE_H-10,
-      "#888"
+      260,
+      4,
+      120,
+      "#8b8b8b"
     );
 
     rectPixel(
       x+1,
-      GATE_Y+7,
+      260,
       2,
-      GATE_H-14,
-      "#555"
+      120,
+      "#b5b5b5"
     );
-
   }
 
 
   /*
-    Horizontal bars
+    Horizontal bars.
   */
 
   for(
-    let y=GATE_Y+20;
-    y<GATE_Y+GATE_H;
-    y+=28
+    let y=275;
+    y<=365;
+    y+=22
   ){
 
     rectPixel(
-      GATE_X+3,
+      842,
       y,
-      GATE_W-6,
+      23,
       5,
       "#777"
     );
-
   }
 
 
   /*
-    Gate bolts
+    Gate sign.
   */
 
   rectPixel(
-    GATE_X+4,
-    GATE_Y+7,
-    5,
-    5,
-    "#ddd"
-  );
-
-  rectPixel(
-    GATE_X+GATE_W-9,
-    GATE_Y+7,
-    5,
-    5,
-    "#ddd"
-  );
-
-
-  /*
-    Red darkness behind gate
-    when something is coming out.
-  */
-
-  if(
-    gateAnimation>0
-  ){
-
-    ctx.globalAlpha=
-      Math.min(
-        1,
-        gateAnimation
-      );
-
-    rectPixel(
-      GATE_X+10,
-      GATE_Y+10,
-      GATE_W-20,
-      GATE_H-20,
-      "#241010"
-    );
-
-    ctx.globalAlpha=1;
-
-  }
-
-}
-
-
-/* =========================
-   DRAW GOBLIN
-   ========================= */
-
-function drawGoblin(e){
-
-  rectPixel(
-    e.x-12,
-    e.y-7,
-    24,
-    22,
-    "#3c8f3d"
-  );
-
-
-  const punchRange=
-    Math.hypot(
-      p.x-e.x,
-      p.y-e.y
-    )<72;
-
-
-  rectPixel(
-    e.x-17,
-    e.y-5,
-    6,
-    12,
-    "#2e7130"
-  );
-
-
-  if(punchRange){
-
-    const dir=
-      p.x<e.x
-      ?-1
-      :1;
-
-
-    rectPixel(
-      e.x+dir*12,
-      e.y-4,
-      10,
-      6,
-      "#4ba747"
-    );
-
-
-    rectPixel(
-      e.x+dir*20,
-      e.y-6,
-      7,
-      10,
-      "#2e7130"
-    );
-
-  }else{
-
-    rectPixel(
-      e.x+11,
-      e.y-5,
-      6,
-      12,
-      "#2e7130"
-    );
-
-  }
-
-
-  rectPixel(
-    e.x-8,
-    e.y-12,
-    16,
-    5,
-    "#4ba747"
-  );
-
-
-  rectPixel(
-    e.x-8,
-    e.y-6,
-    6,
-    3,
-    "#111"
-  );
-
-  rectPixel(
-    e.x+2,
-    e.y-6,
-    6,
-    3,
-    "#111"
-  );
-
-
-  rectPixel(
-    e.x-7,
-    e.y-2,
-    4,
-    4,
-    "#111"
-  );
-
-  rectPixel(
-    e.x+3,
-    e.y-2,
-    4,
-    4,
-    "#111"
-  );
-
-
-  rectPixel(
-    e.x-5,
-    e.y+8,
-    10,
-    3,
-    "#183c19"
-  );
-
-}
-
-
-/* =========================
-   DRAW MINI OGRE
-   ========================= */
-
-function drawOgre(e){
-
-  rectPixel(
-    e.x-25,
-    e.y-25,
-    50,
-    48,
-    "#397d36"
-  );
-
-
-  rectPixel(
-    e.x-31,
-    e.y-18,
-    7,
-    17,
-    "#2b622c"
-  );
-
-  rectPixel(
-    e.x+24,
-    e.y-18,
-    7,
-    17,
-    "#2b622c"
-  );
-
-
-  rectPixel(
-    e.x-16,
-    e.y-16,
-    11,
-    5,
-    "#111"
-  );
-
-  rectPixel(
-    e.x+5,
-    e.y-16,
-    11,
-    5,
-    "#111"
-  );
-
-
-  rectPixel(
-    e.x-13,
-    e.y-10,
-    8,
-    8,
-    "#111"
-  );
-
-  rectPixel(
-    e.x+5,
-    e.y-10,
-    8,
-    8,
-    "#111"
-  );
-
-
-  rectPixel(
-    e.x-12,
-    e.y+8,
-    24,
-    5,
-    "#132d13"
-  );
-
-  rectPixel(
-    e.x-8,
-    e.y+13,
-    16,
-    3,
-    "#132d13"
-  );
-
-
-  const closeOgre=
-    Math.hypot(
-      p.x-e.x,
-      p.y-e.y
-    )<105;
-
-
-  const batDir=
-    p.x<e.x
-    ?-1
-    :1;
-
-
-  ctx.save();
-
-  ctx.translate(
-    e.x,
-    e.y
-  );
-
-
-  if(closeOgre){
-
-    const swing=
-      Math.sin(
-        performance.now()/120
-      )*.9;
-
-
-    ctx.rotate(
-      batDir*
-      (.45+swing)
-    );
-
-  }else{
-
-    ctx.rotate(-0.65);
-
-  }
-
-
-  rectPixel(
-    16,
-    -30,
-    7,
-    44,
-    "#714728"
-  );
-
-  rectPixel(
-    11,
-    -36,
-    17,
-    13,
-    "#8d5b32"
-  );
-
-
-  ctx.restore();
-
-}
-
-
-/* =========================
-   DRAW BIG BOSS
-   ========================= */
-
-function drawBigBoss(){
-
-  if(!bigBoss)return;
-
-  const e=bigBoss;
-
-
-  /*
-    Huge buff body
-  */
-
-  rectPixel(
-    e.x-43,
-    e.y-38,
-    86,
-    76,
-    "#326e32"
-  );
-
-
-  /*
-    Massive shoulders
-  */
-
-  rectPixel(
-    e.x-57,
-    e.y-28,
-    18,
-    35,
-    "#285c2a"
-  );
-
-  rectPixel(
-    e.x+39,
-    e.y-28,
-    18,
-    35,
-    "#285c2a"
-  );
-
-
-  /*
-    Arms
-  */
-
-  rectPixel(
-    e.x-55,
-    e.y+5,
-    18,
+    839,
+    220,
     30,
-    "#397d36"
-  );
-
-  rectPixel(
-    e.x+37,
-    e.y+5,
     18,
-    30,
-    "#397d36"
+    "#111"
   );
 
-
-  /*
-    Head
-  */
-
   rectPixel(
-    e.x-35,
-    e.y-55,
-    70,
-    45,
-    "#4b963f"
-  );
-
-
-  /*
-    Ears
-  */
-
-  rectPixel(
-    e.x-45,
-    e.y-45,
-    12,
+    843,
+    224,
     22,
-    "#2b622c"
-  );
-
-  rectPixel(
-    e.x+33,
-    e.y-45,
-    12,
-    22,
-    "#2b622c"
-  );
-
-
-  /*
-    Eyes
-  */
-
-  rectPixel(
-    e.x-23,
-    e.y-39,
-    15,
-    8,
-    "#111"
-  );
-
-  rectPixel(
-    e.x+8,
-    e.y-39,
-    15,
-    8,
-    "#111"
-  );
-
-
-  rectPixel(
-    e.x-18,
-    e.y-37,
-    6,
     4,
-    "#e83e3e"
+    "#65b95b"
   );
 
-  rectPixel(
-    e.x+12,
-    e.y-37,
-    6,
-    4,
-    "#e83e3e"
-  );
-
-
-  /*
-    BIG FACE SCAR
-  */
-
-  rectPixel(
-    e.x+5,
-    e.y-30,
-    5,
-    7,
-    "#641e1e"
-  );
-
-  rectPixel(
-    e.x+10,
-    e.y-24,
-    5,
-    7,
-    "#641e1e"
-  );
-
-  rectPixel(
-    e.x+15,
-    e.y-18,
-    5,
-    7,
-    "#641e1e"
-  );
-
-
-  /*
-    Nose
-  */
-
-  rectPixel(
-    e.x-5,
-    e.y-27,
-    10,
-    13,
-    "#2b622c"
-  );
-
-
-  /*
-    Angry mouth
-  */
-
-  rectPixel(
-    e.x-20,
-    e.y-8,
-    40,
-    7,
-    "#132d13"
-  );
-
-  rectPixel(
-    e.x-12,
-    e.y-5,
-    8,
-    3,
-    "#ddd"
-  );
-
-  rectPixel(
-    e.x+5,
-    e.y-5,
-    8,
-    3,
-    "#ddd"
-  );
-
-
-  /*
-    Spiky bat
-  */
-
-  const close=
-    Math.hypot(
-      p.x-e.x,
-      p.y-e.y
-    )<150;
-
-  const batDir=
-    p.x<e.x
-    ?-1
-    :1;
-
-
-  ctx.save();
-
-  ctx.translate(
-    e.x,
-    e.y
-  );
-
-
-  let rot=-0.7;
-
-  if(close){
-
-    rot=
-      batDir*
-      (
-        .55+
-        Math.sin(
-          performance.now()/150
-        )*.65
-      );
-
-  }
-
-
-  ctx.rotate(rot);
-
-
-  /*
-    Massive handle
-  */
-
-  rectPixel(
-    25,
-    -8,
-    12,
-    70,
-    "#5a3824"
-  );
-
-
-  /*
-    Huge bat head
-  */
-
-  rectPixel(
-    18,
-    -43,
-    38,
-    55,
-    "#754a2c"
-  );
-
-
-  rectPixel(
-    13,
-    -36,
-    48,
-    39,
-    "#875630"
-  );
-
-
-  /*
-    Spikes
-  */
-
-  rectPixel(
-    14,
-    -45,
-    8,
-    15,
-    "#c4c4c4"
-  );
-
-  rectPixel(
-    28,
-    -50,
-    8,
-    17,
-    "#c4c4c4"
-  );
-
-  rectPixel(
-    42,
-    -46,
-    8,
-    16,
-    "#c4c4c4"
-  );
-
-  rectPixel(
-    49,
-    -25,
-    14,
-    8,
-    "#c4c4c4"
-  );
-
-  rectPixel(
-    48,
-    -5,
-    13,
-    8,
-    "#c4c4c4"
-  );
-
-
-  ctx.restore();
-
-
-  /*
-    Boss health bar
-  */
-
-  const bw=180;
-  const bh=10;
-
-  const bx=
-    e.x-bw/2;
-
-  const by=
-    e.y-78;
-
-
-  rectPixel(
-    bx-3,
-    by-3,
-    bw+6,
-    bh+6,
-    "#111"
-  );
-
-  rectPixel(
-    bx,
-    by,
-    bw,
-    bh,
-    "#551c1c"
-  );
-
-  rectPixel(
-    bx,
-    by,
-    bw*
-    Math.max(
-      0,
-      e.hp/e.maxHp
-    ),
-    bh,
-    "#e63e3e"
-  );
-
-
-  ctx.fillStyle="#fff";
-  ctx.font="14px monospace";
+  ctx.fillStyle="#bdebb5";
+  ctx.font="9px monospace";
 
   ctx.fillText(
-    "BIG OGRE",
-    e.x-42,
-    by-8
+    "GATE",
+    840,
+    215
   );
-
 }
 
 
@@ -2503,7 +1624,7 @@ function draw(){
 
 
   /*
-    Bigger arena
+    Arena floor.
   */
 
   ctx.fillStyle="#303030";
@@ -2529,24 +1650,24 @@ function draw(){
 
 
   /*
-    Floor pixels
+    Floor pixels.
   */
 
   for(
     let i=0;
-    i<85;
+    i<80;
     i++
   ){
 
     const x=
       ARENA.left+15+
       Math.random()*
-      (ARENA.right-ARENA.left-40);
+      (ARENA.right-ARENA.left-50);
 
     const y=
-      ARENA.top+15+
+      ARENA.top+20+
       Math.random()*
-      (ARENA.bottom-ARENA.top-40);
+      (ARENA.bottom-ARENA.top-45);
 
 
     rectPixel(
@@ -2558,11 +1679,12 @@ function draw(){
         ?"#353535"
         :"#3b3b3b"
     );
-
   }
 
 
-  /* Gate */
+  /*
+    Gate is drawn behind enemies.
+  */
 
   drawGate();
 
@@ -2577,12 +1699,557 @@ function draw(){
 
     if(e.type==="goblin"){
 
-      drawGoblin(e);
+      rectPixel(
+        e.x-12,
+        e.y-7,
+        24,
+        22,
+        "#3c8f3d"
+      );
+
+
+      const punchRange=
+        Math.hypot(
+          p.x-e.x,
+          p.y-e.y
+        )<72;
+
+
+      rectPixel(
+        e.x-17,
+        e.y-5,
+        6,
+        12,
+        "#2e7130"
+      );
+
+
+      if(punchRange){
+
+        const dir=
+          p.x<e.x
+          ?-1
+          :1;
+
+
+        rectPixel(
+          e.x+dir*12,
+          e.y-4,
+          10,
+          6,
+          "#4ba747"
+        );
+
+
+        rectPixel(
+          e.x+dir*20,
+          e.y-6,
+          7,
+          10,
+          "#2e7130"
+        );
+
+      }else{
+
+        rectPixel(
+          e.x+11,
+          e.y-5,
+          6,
+          12,
+          "#2e7130"
+        );
+
+      }
+
+
+      rectPixel(
+        e.x-8,
+        e.y-12,
+        16,
+        5,
+        "#4ba747"
+      );
+
+
+      rectPixel(
+        e.x-8,
+        e.y-6,
+        6,
+        3,
+        "#111"
+      );
+
+      rectPixel(
+        e.x+2,
+        e.y-6,
+        6,
+        3,
+        "#111"
+      );
+
+
+      rectPixel(
+        e.x-7,
+        e.y-2,
+        4,
+        4,
+        "#111"
+      );
+
+      rectPixel(
+        e.x+3,
+        e.y-2,
+        4,
+        4,
+        "#111"
+      );
+
+
+      rectPixel(
+        e.x-5,
+        e.y+8,
+        10,
+        3,
+        "#183c19"
+      );
+
+    }else if(e.type==="ogre"){
+
+      rectPixel(
+        e.x-25,
+        e.y-25,
+        50,
+        48,
+        "#397d36"
+      );
+
+
+      rectPixel(
+        e.x-31,
+        e.y-18,
+        7,
+        17,
+        "#2b622c"
+      );
+
+      rectPixel(
+        e.x+24,
+        e.y-18,
+        7,
+        17,
+        "#2b622c"
+      );
+
+
+      rectPixel(
+        e.x-16,
+        e.y-16,
+        11,
+        5,
+        "#111"
+      );
+
+      rectPixel(
+        e.x+5,
+        e.y-16,
+        11,
+        5,
+        "#111"
+      );
+
+
+      rectPixel(
+        e.x-13,
+        e.y-10,
+        8,
+        8,
+        "#111"
+      );
+
+      rectPixel(
+        e.x+5,
+        e.y-10,
+        8,
+        8,
+        "#111"
+      );
+
+
+      rectPixel(
+        e.x-12,
+        e.y+8,
+        24,
+        5,
+        "#132d13"
+      );
+
+      rectPixel(
+        e.x-8,
+        e.y+13,
+        16,
+        3,
+        "#132d13"
+      );
+
+
+      const closeOgre=
+        Math.hypot(
+          p.x-e.x,
+          p.y-e.y
+        )<105;
+
+
+      const batDir=
+        p.x<e.x
+        ?-1
+        :1;
+
+
+      ctx.save();
+
+      ctx.translate(
+        e.x,
+        e.y
+      );
+
+
+      if(closeOgre){
+
+        const swing=
+          Math.sin(
+            performance.now()/120
+          )*.9;
+
+
+        ctx.rotate(
+          batDir*
+          (.45+swing)
+        );
+
+      }else{
+
+        ctx.rotate(-0.65);
+
+      }
+
+
+      rectPixel(
+        16,
+        -30,
+        7,
+        44,
+        "#714728"
+      );
+
+      rectPixel(
+        11,
+        -36,
+        17,
+        13,
+        "#8d5b32"
+      );
+
+
+      ctx.restore();
 
     }else{
 
-      drawOgre(e);
+      /*
+        BIG BOSS BODY
+      */
 
+      rectPixel(
+        e.x-38,
+        e.y-36,
+        76,
+        66,
+        "#326f31"
+      );
+
+
+      /*
+        Buff shoulders.
+      */
+
+      rectPixel(
+        e.x-49,
+        e.y-25,
+        13,
+        30,
+        "#285c29"
+      );
+
+      rectPixel(
+        e.x+36,
+        e.y-25,
+        13,
+        30,
+        "#285c29"
+      );
+
+
+      /*
+        Arms.
+      */
+
+      rectPixel(
+        e.x-55,
+        e.y-8,
+        14,
+        34,
+        "#397d36"
+      );
+
+      rectPixel(
+        e.x+41,
+        e.y-8,
+        14,
+        34,
+        "#397d36"
+      );
+
+
+      /*
+        Head.
+      */
+
+      rectPixel(
+        e.x-31,
+        e.y-52,
+        62,
+        43,
+        "#458d3d"
+      );
+
+
+      /*
+        Ears.
+      */
+
+      rectPixel(
+        e.x-38,
+        e.y-42,
+        8,
+        18,
+        "#2b622c"
+      );
+
+      rectPixel(
+        e.x+30,
+        e.y-42,
+        8,
+        18,
+        "#2b622c"
+      );
+
+
+      /*
+        Eyes.
+      */
+
+      rectPixel(
+        e.x-20,
+        e.y-39,
+        13,
+        6,
+        "#111"
+      );
+
+      rectPixel(
+        e.x+7,
+        e.y-39,
+        13,
+        6,
+        "#111"
+      );
+
+
+      /*
+        Glowing-looking eye pixels.
+      */
+
+      rectPixel(
+        e.x-17,
+        e.y-38,
+        5,
+        3,
+        "#d9df65"
+      );
+
+      rectPixel(
+        e.x+10,
+        e.y-38,
+        5,
+        3,
+        "#d9df65"
+      );
+
+
+      /*
+        SCAR across face.
+      */
+
+      rectPixel(
+        e.x-2,
+        e.y-34,
+        4,
+        9,
+        "#702929"
+      );
+
+      rectPixel(
+        e.x-6,
+        e.y-27,
+        4,
+        9,
+        "#702929"
+      );
+
+      rectPixel(
+        e.x-10,
+        e.y-20,
+        4,
+        9,
+        "#702929"
+      );
+
+
+      /*
+        Angry mouth.
+      */
+
+      rectPixel(
+        e.x-18,
+        e.y-13,
+        36,
+        6,
+        "#142d14"
+      );
+
+      rectPixel(
+        e.x-10,
+        e.y-7,
+        20,
+        4,
+        "#111"
+      );
+
+
+      /*
+        Big spiky bat.
+      */
+
+      const bossClose=
+        Math.hypot(
+          p.x-e.x,
+          p.y-e.y
+        )<145;
+
+      const bossBatDir=
+        p.x<e.x
+        ?-1
+        :1;
+
+      ctx.save();
+
+      ctx.translate(
+        e.x,
+        e.y
+      );
+
+
+      if(bossClose){
+
+        const swing=
+          Math.sin(
+            performance.now()/100
+          )*.45;
+
+        ctx.rotate(
+          bossBatDir*
+          (.35+swing)
+        );
+
+      }else{
+
+        ctx.rotate(
+          bossBatDir*.5
+        );
+      }
+
+
+      /*
+        Handle.
+      */
+
+      rectPixel(
+        18,
+        -48,
+        10,
+        68,
+        "#603b22"
+      );
+
+
+      /*
+        Huge bat head.
+      */
+
+      rectPixel(
+        10,
+        -62,
+        30,
+        28,
+        "#7a4b2a"
+      );
+
+
+      /*
+        Spikes.
+      */
+
+      rectPixel(
+        15,
+        -70,
+        6,
+        10,
+        "#c2c2c2"
+      );
+
+      rectPixel(
+        25,
+        -72,
+        6,
+        12,
+        "#c2c2c2"
+      );
+
+      rectPixel(
+        35,
+        -68,
+        6,
+        10,
+        "#c2c2c2"
+      );
+
+      rectPixel(
+        8,
+        -54,
+        9,
+        6,
+        "#c2c2c2"
+      );
+
+      rectPixel(
+        38,
+        -52,
+        9,
+        6,
+        "#c2c2c2"
+      );
+
+
+      ctx.restore();
     }
 
 
@@ -2608,18 +2275,24 @@ function draw(){
     }
 
 
-    const bw=
-      e.type==="ogre"
-      ?64
-      :34;
+    let bw;
+    let bh=6;
 
-    const bh=6;
+    if(e.type==="bigboss")
+      bw=100;
+    else if(e.type==="ogre")
+      bw=64;
+    else
+      bw=34;
+
 
     const bx=
       e.x-bw/2;
 
     const by=
-      e.y-e.r-15;
+      e.type==="bigboss"
+      ?e.y-75
+      :e.y-e.r-15;
 
 
     rectPixel(
@@ -2649,18 +2322,16 @@ function draw(){
         e.hp/e.maxHp
       ),
       bh,
-      "#55c84a"
+      e.type==="bigboss"
+      ?"e4b83f"
+      :"#55c84a"
     );
-
   }
 
 
-  /* Big boss */
-
-  drawBigBoss();
-
-
-  /* Bomb pickups */
+  /* =========================
+     BOMB PICKUPS
+     ========================= */
 
   for(
     const bp of bombPickups
@@ -2697,11 +2368,12 @@ function draw(){
       3,
       "#ddd"
     );
-
   }
 
 
-  /* Thrown bombs */
+  /* =========================
+     THROWN BOMBS
+     ========================= */
 
   for(
     const b of bombs
@@ -2815,11 +2487,12 @@ function draw(){
       ctx.restore();
 
     }
-
   }
 
 
-  /* Fireballs */
+  /* =========================
+     FIREBALLS
+     ========================= */
 
   for(
     const b of balls
@@ -2848,11 +2521,12 @@ function draw(){
       7,
       "#ffe27a"
     );
-
   }
 
 
-  /* Particles */
+  /* =========================
+     PARTICLES
+     ========================= */
 
   for(
     const s of particles
@@ -2875,7 +2549,6 @@ function draw(){
 
 
     ctx.globalAlpha=1;
-
   }
 
 
@@ -3134,10 +2807,10 @@ function draw(){
 
 
   /* =========================
-     BOSS COUNTDOWN
+     BIG BOSS COUNTDOWN
      ========================= */
 
-  if(bossCountdownActive){
+  if(bigBossCountdown){
 
     ctx.fillStyle="#000";
 
@@ -3153,15 +2826,27 @@ function draw(){
     ctx.globalAlpha=1;
 
 
-    ctx.fillStyle="#ff4444";
+    ctx.textAlign="center";
 
-    ctx.font="34px monospace";
+    ctx.fillStyle="#ff5555";
+
+    ctx.font="32px monospace";
 
     ctx.fillText(
-      "BOSS INCOMING",
-      295,
-      220
+      "BOSS INCOMING!",
+      W/2,
+      180
     );
+
+
+    let number=
+      Math.ceil(
+        bigBossCountdownTimer
+      );
+
+
+    if(number<1)
+      number=1;
 
 
     ctx.fillStyle="#fff";
@@ -3169,32 +2854,99 @@ function draw(){
     ctx.font="90px monospace";
 
     ctx.fillText(
-      String(bossCountdown),
-      430,
-      330
+      String(number),
+      W/2,
+      300
     );
 
 
     ctx.font="18px monospace";
 
     ctx.fillText(
-      "THE GIANT OGRE IS COMING...",
-      285,
-      375
+      "THE GATE IS OPENING...",
+      W/2,
+      345
     );
 
+
+    ctx.textAlign="left";
   }
 
 
   /* =========================
-     PAUSE
+     BIG BOSS ACTIVE HUD
+     ========================= */
+
+  if(bigBossActive){
+
+    const boss=
+      enemies.find(
+        e=>e.type==="bigboss"
+      );
+
+
+    if(boss){
+
+      ctx.fillStyle="#111";
+
+      ctx.fillRect(
+        190,
+        48,
+        520,
+        18
+      );
+
+
+      ctx.fillStyle="#8c2020";
+
+      ctx.fillRect(
+        194,
+        52,
+        512,
+        10
+      );
+
+
+      ctx.fillStyle="#e84b4b";
+
+      ctx.fillRect(
+        194,
+        52,
+        512*
+        Math.max(
+          0,
+          boss.hp/boss.maxHp
+        ),
+        10
+      );
+
+
+      ctx.fillStyle="#fff";
+
+      ctx.textAlign="center";
+
+      ctx.font="14px monospace";
+
+      ctx.fillText(
+        "BIG OGRE BOSS",
+        450,
+        43
+      );
+
+      ctx.textAlign="left";
+    }
+  }
+
+
+  /* =========================
+     PAUSE SCREEN
      ========================= */
 
   if(paused){
 
     ctx.fillStyle="#000";
 
-    ctx.globalAlpha=.72;
+    ctx.globalAlpha=.78;
 
     ctx.fillRect(
       0,
@@ -3208,12 +2960,14 @@ function draw(){
 
     ctx.fillStyle="#fff";
 
+    ctx.textAlign="center";
+
     ctx.font="48px monospace";
 
     ctx.fillText(
       "PAUSED",
-      365,
-      275
+      W/2,
+      270
     );
 
 
@@ -3221,10 +2975,11 @@ function draw(){
 
     ctx.fillText(
       "Press P or click RESUME",
-      305,
-      320
+      W/2,
+      315
     );
 
+    ctx.textAlign="left";
   }
 
 
@@ -3332,7 +3087,7 @@ function draw(){
 
       ctx.fillStyle=
         t==="NOTHING"
-        ?" #183c1d"
+        ?"#183c1d"
         :"#1e3d20";
 
       ctx.fillRect(
@@ -3345,7 +3100,7 @@ function draw(){
 
       ctx.strokeStyle=
         t==="NOTHING"
-        ?" #8ee889"
+        ?"#8ee889"
         :"#65b95b";
 
       ctx.lineWidth=4;
@@ -3388,7 +3143,6 @@ function draw(){
         x+60,
         340
       );
-
     }
 
 
@@ -3402,7 +3156,6 @@ function draw(){
       275,
       405
     );
-
   }
 
 
@@ -3456,9 +3209,50 @@ function draw(){
       355,
       340
     );
+  }
+}
 
+
+/* =========================
+   START BIG BOSS COUNTDOWN
+   ========================= */
+
+function startBigBossCountdown(){
+
+  if(
+    bigBossActive||
+    bigBossCountdown||
+    gameOver
+  ){
+
+    return;
   }
 
+
+  bigBossCountdown=true;
+
+  bigBossCountdownTimer=3;
+
+  enemies=
+    enemies.filter(
+      e=>e.type==="bigboss"
+    );
+}
+
+
+/* =========================
+   SPAWN BIG BOSS
+   ========================= */
+
+function spawnBigBoss(){
+
+  bigBossCountdown=false;
+
+  bigBossActive=true;
+
+  bigBossNumber++;
+
+  spawnEnemy("bigboss");
 }
 
 
@@ -3471,36 +3265,32 @@ function loop(){
   requestAnimationFrame(loop);
 
 
-  if(!gameOver&&!paused){
+  if(
+    !gameOver&&
+    !paused
+  ){
 
     /*
-      Boss countdown.
+      Big boss countdown happens
+      before the boss appears.
     */
 
-    if(bossCountdownActive){
+    if(bigBossCountdown){
 
-      updateBossCountdown();
-
-    }
+      bigBossCountdownTimer-=1/60;
 
 
-    /*
-      Normal game only runs when
-      upgrade screen is closed.
-    */
+      if(
+        bigBossCountdownTimer<=0
+      ){
 
-    if(!upgradeOpen){
-
-      elapsed+=1/60;
-
-
-      /* Gate animation */
-
-      if(gateAnimation>0){
-
-        gateAnimation-=1/60;
+        spawnBigBoss();
 
       }
+
+    }else if(!upgradeOpen){
+
+      elapsed+=1/60;
 
 
       /* =========================
@@ -3508,32 +3298,25 @@ function loop(){
          ========================= */
 
       if(
-        !bigBoss&&
-        !bossCountdownActive&&
+        !bigBossActive&&
         elapsed>=nextBigBossTime
       ){
 
-        startBossCountdown();
+        startBigBossCountdown();
+
+        nextBigBossTime+=BIG_BOSS_INTERVAL;
 
       }
 
 
-      /*
-        During countdown or big boss,
-        NORMAL ENEMIES DO NOT SPAWN.
-      */
-
-
-      /* Bomb spawning */
+      /* =========================
+         BOMBS
+         ========================= */
 
       bombSpawnTimer-=1/60;
 
 
-      if(
-        bombSpawnTimer<=0&&
-        !bigBoss&&
-        !bossCountdownActive
-      ){
+      if(bombSpawnTimer<=0){
 
         spawnBombPickup();
 
@@ -3556,8 +3339,6 @@ function loop(){
           bp=>bp.life>0
         );
 
-
-      /* Pick up bombs */
 
       if(bombCount<3){
 
@@ -3583,18 +3364,17 @@ function loop(){
             );
 
           }
-
         }
-
       }
 
 
-      /* Upgrade timer */
+      /* =========================
+         UPGRADES
+         ========================= */
 
       if(
         elapsed>=nextUpgrade&&
-        !bigBoss&&
-        !bossCountdownActive
+        !bigBossActive
       ){
 
         upgradeOpen=true;
@@ -3605,7 +3385,7 @@ function loop(){
 
 
       /* =========================
-         WAVES
+         NORMAL WAVES
          ========================= */
 
       const newWave=
@@ -3616,8 +3396,7 @@ function loop(){
 
       if(
         newWave>wave&&
-        !bigBoss&&
-        !bossCountdownActive
+        !bigBossActive
       ){
 
         wave=newWave;
@@ -3639,8 +3418,8 @@ function loop(){
 
       if(
         bossMark>0&&
-        !bigBoss&&
-        !bossCountdownActive&&
+        !bigBossActive&&
+        !bigBossCountdown&&
         !enemies.some(
           e=>
             e.type==="ogre"&&
@@ -3673,7 +3452,6 @@ function loop(){
             bossMark;
 
         }
-
       }
 
 
@@ -3728,15 +3506,11 @@ function loop(){
         p.speed;
 
 
-      /*
-        Keep player inside the bigger arena.
-      */
-
       p.x=
         Math.max(
-          ARENA.left+30,
+          ARENA.left+15,
           Math.min(
-            ARENA.right-30,
+            ARENA.right-35,
             p.x
           )
         );
@@ -3744,15 +3518,17 @@ function loop(){
 
       p.y=
         Math.max(
-          ARENA.top+30,
+          ARENA.top+20,
           Math.min(
-            ARENA.bottom-30,
+            ARENA.bottom-35,
             p.y
           )
         );
 
 
-      /* Shooting */
+      /* =========================
+         SHOOTING
+         ========================= */
 
       if(mouse.down){
 
@@ -3819,8 +3595,7 @@ function loop(){
 
 
           if(
-            b.distance>=
-            BOMB_THROW_DISTANCE
+            b.distance>=BOMB_THROW_DISTANCE
           ){
 
             explodeBomb(b);
@@ -3846,7 +3621,6 @@ function loop(){
               explodeBomb(b);
 
             }
-
           }
 
 
@@ -3865,27 +3639,11 @@ function loop(){
           }
 
 
-          if(
-            !b.exploded&&
-            bigBoss&&
-            Math.hypot(
-              b.x-bigBoss.x,
-              b.y-bigBoss.y
-            )<
-            bigBoss.r+b.r
-          ){
-
-            explodeBomb(b);
-
-          }
-
-
         }else{
 
           b.disintegrate--;
 
         }
-
       }
 
 
@@ -3898,7 +3656,7 @@ function loop(){
 
 
       /* =========================
-         ENEMY MOVEMENT
+         ENEMY MOVEMENT / COMBAT
          ========================= */
 
       for(
@@ -3929,6 +3687,30 @@ function loop(){
           e.speed;
 
 
+        /*
+          Keep enemies inside the arena.
+        */
+
+        e.x=
+          Math.max(
+            ARENA.left+15,
+            Math.min(
+              ARENA.right-25,
+              e.x
+            )
+          );
+
+
+        e.y=
+          Math.max(
+            ARENA.top+15,
+            Math.min(
+              ARENA.bottom-25,
+              e.y
+            )
+          );
+
+
         if(e.attack>0){
 
           e.attack--;
@@ -3946,7 +3728,9 @@ function loop(){
         }
 
 
-        /* Fireball collisions */
+        /* =========================
+           FIREBALL COLLISIONS
+           ========================= */
 
         for(
           const b of balls
@@ -3986,6 +3770,10 @@ function loop(){
             );
 
 
+            /*
+              Splash damage.
+            */
+
             for(
               const other of enemies
             ){
@@ -4016,15 +3804,14 @@ function loop(){
                 other.burnTick=0;
 
               }
-
             }
-
           }
-
         }
 
 
-        /* Burn */
+        /* =========================
+           BURN DAMAGE
+           ========================= */
 
         if(e.burn>0){
 
@@ -4040,122 +3827,7 @@ function loop(){
             e.hp-=2.5;
 
           }
-
         }
-
-      }
-
-
-      /* =========================
-         BIG BOSS MOVEMENT
-         ========================= */
-
-      if(bigBoss){
-
-        const dx=
-          p.x-bigBoss.x;
-
-        const dy=
-          p.y-bigBoss.y;
-
-        const d=
-          Math.hypot(
-            dx,
-            dy
-          )||1;
-
-
-        bigBoss.x+=
-          dx/d*
-          bigBoss.speed;
-
-        bigBoss.y+=
-          dy/d*
-          bigBoss.speed;
-
-
-        if(bigBoss.attack>0){
-
-          bigBoss.attack--;
-
-        }
-
-
-        if(
-          d<bigBoss.r+18&&
-          bigBoss.attack<=0
-        ){
-
-          bigBoss.attack=70;
-
-          loseHeart();
-
-        }
-
-
-        /*
-          Big boss takes fireball damage.
-        */
-
-        for(
-          const b of balls
-        ){
-
-          if(
-            Math.hypot(
-              b.x-bigBoss.x,
-              b.y-bigBoss.y
-            )<
-            bigBoss.r+b.r
-          ){
-
-            bigBoss.hp-=p.damage;
-
-            bigBoss.burn=
-              Math.max(
-                bigBoss.burn,
-                42
-              );
-
-            bigBoss.burnTick=0;
-
-            b.life=0;
-
-            burst(
-              b.x,
-              b.y,
-              14
-            );
-
-          }
-
-        }
-
-
-        if(bigBoss.burn>0){
-
-          bigBoss.burn--;
-
-          bigBoss.burnTick++;
-
-
-          if(
-            bigBoss.burnTick%7===0
-          ){
-
-            bigBoss.hp-=4;
-
-          }
-
-        }
-
-
-        if(bigBoss.hp<=0){
-
-          killBigBoss();
-
-        }
-
       }
 
 
@@ -4180,6 +3852,23 @@ function loop(){
         );
 
 
+      /*
+        If the big boss was defeated,
+        normal spawning can continue.
+      */
+
+      if(
+        bigBossActive&&
+        !enemies.some(
+          e=>e.type==="bigboss"
+        )
+      ){
+
+        bigBossActive=false;
+
+      }
+
+
       /* =========================
          PARTICLES
          ========================= */
@@ -4202,7 +3891,7 @@ function loop(){
 
 
       /* =========================
-         HEART REGENERATION
+         HEART REGEN
          ========================= */
 
       if(heartRegen>0){
@@ -4217,16 +3906,12 @@ function loop(){
           regainHeart();
 
         }
-
       }
-
     }
-
   }
 
 
   draw();
-
 }
 
 
