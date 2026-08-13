@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html>
 <head>
@@ -21,10 +22,10 @@ canvas{
   cursor:crosshair;
 }
 
-#fullscreenBtn{
+#fullscreenBtn,
+#pauseBtn{
   position:fixed;
   top:10px;
-  right:10px;
   z-index:10;
   padding:8px 12px;
   background:#1e3d20;
@@ -35,7 +36,16 @@ canvas{
   cursor:pointer;
 }
 
-#fullscreenBtn:hover{
+#fullscreenBtn{
+  right:10px;
+}
+
+#pauseBtn{
+  right:145px;
+}
+
+#fullscreenBtn:hover,
+#pauseBtn:hover{
   background:#2c5a2f;
 }
 </style>
@@ -43,6 +53,7 @@ canvas{
 
 <body>
 
+<button id="pauseBtn">PAUSE</button>
 <button id="fullscreenBtn">FULLSCREEN</button>
 
 <canvas id="game" width="900" height="600"></canvas>
@@ -60,6 +71,8 @@ let keys={};
 let mouse={x:450,y:300,down:false};
 
 let p,enemies,balls,particles,score,coins,wave,elapsed,gameOver,upgradeOpen,nextUpgrade;
+
+let paused=false;
 
 let upgradeCost=10;
 
@@ -87,6 +100,30 @@ let highscore=Number(
 
 
 /* =========================
+   ARENA
+   ========================= */
+
+const ARENA={
+  left:25,
+  right:875,
+  top:40,
+  bottom:560
+};
+
+
+/* =========================
+   GOBLIN GATE
+   ========================= */
+
+const GATE={
+  x:835,
+  y:220,
+  width:40,
+  height:160
+};
+
+
+/* =========================
    AUDIO
    ========================= */
 
@@ -94,6 +131,14 @@ let audioCtx=null;
 let musicStarted=false;
 let musicTimer=null;
 let musicStep=0;
+
+
+/*
+  All game sounds are doubled.
+*/
+
+const SOUND_MULTIPLIER=2;
+
 
 function startMusic(){
 
@@ -156,7 +201,7 @@ function playFireballSound(){
   );
 
   gain.gain.exponentialRampToValueAtTime(
-    0.035,
+    0.035*SOUND_MULTIPLIER,
     now+0.01
   );
 
@@ -184,8 +229,6 @@ function playBombExplosionSound(){
   const now=audioCtx.currentTime;
 
 
-  /* Low square-wave boom */
-
   const boom=
     audioCtx.createOscillator();
 
@@ -210,7 +253,7 @@ function playBombExplosionSound(){
   );
 
   boomGain.gain.exponentialRampToValueAtTime(
-    0.12,
+    0.12*SOUND_MULTIPLIER,
     now+0.015
   );
 
@@ -225,8 +268,6 @@ function playBombExplosionSound(){
   boom.start(now);
   boom.stop(now+0.27);
 
-
-  /* Pixelated high-frequency crack */
 
   const crack=
     audioCtx.createOscillator();
@@ -252,7 +293,7 @@ function playBombExplosionSound(){
   );
 
   crackGain.gain.exponentialRampToValueAtTime(
-    0.055,
+    0.055*SOUND_MULTIPLIER,
     now+0.005
   );
 
@@ -268,8 +309,6 @@ function playBombExplosionSound(){
   crack.stop(now+0.15);
 
 
-  /* Tiny digital click */
-
   const click=
     audioCtx.createOscillator();
 
@@ -280,7 +319,7 @@ function playBombExplosionSound(){
   click.frequency.value=1400;
 
   clickGain.gain.setValueAtTime(
-    0.025,
+    0.025*SOUND_MULTIPLIER,
     now
   );
 
@@ -299,7 +338,7 @@ function playBombExplosionSound(){
 
 function playMusicStep(){
 
-  if(!audioCtx||gameOver)return;
+  if(!audioCtx||gameOver||paused)return;
 
   const notes=[
     110,130.81,146.83,164.81,
@@ -337,7 +376,7 @@ function playMusicStep(){
   );
 
   gain.gain.exponentialRampToValueAtTime(
-    0.065,
+    0.065*SOUND_MULTIPLIER,
     now+0.02
   );
 
@@ -368,7 +407,7 @@ function playMusicStep(){
   );
 
   bassGain.gain.exponentialRampToValueAtTime(
-    0.075,
+    0.075*SOUND_MULTIPLIER,
     now+0.02
   );
 
@@ -385,6 +424,42 @@ function playMusicStep(){
 
   musicStep++;
 }
+
+
+/* =========================
+   PAUSE BUTTON
+   ========================= */
+
+const pauseBtn=
+  document.getElementById(
+    "pauseBtn"
+  );
+
+
+function togglePause(){
+
+  if(gameOver)return;
+
+  paused=!paused;
+
+  pauseBtn.textContent=
+    paused
+    ?"RESUME"
+    :"PAUSE";
+
+  mouse.down=false;
+}
+
+
+pauseBtn.addEventListener(
+  "click",
+  ()=>{
+
+    startMusic();
+    togglePause();
+
+  }
+);
 
 
 /* =========================
@@ -465,6 +540,9 @@ function reset(){
   wave=1;
   elapsed=0;
   gameOver=false;
+  paused=false;
+
+  pauseBtn.textContent="PAUSE";
 
   upgradeOpen=false;
 
@@ -496,6 +574,7 @@ function reset(){
   spawnWave(1);
 }
 
+
 reset();
 
 
@@ -509,13 +588,23 @@ window.addEventListener(
 
     startMusic();
 
-    keys[
-      e.key.toLowerCase()
-    ]=true;
+    const key=e.key.toLowerCase();
+
+    keys[key]=true;
 
 
     if(
-      e.key.toLowerCase()==="r" &&
+      key==="p" &&
+      !e.repeat
+    ){
+
+      togglePause();
+      return;
+    }
+
+
+    if(
+      key==="r" &&
       gameOver
     ){
 
@@ -525,15 +614,16 @@ window.addEventListener(
 
 
     if(
-      e.key.toLowerCase()==="q" &&
-      !e.repeat
+      key==="q" &&
+      !e.repeat &&
+      !paused
     ){
 
       throwBomb();
     }
 
 
-    if(upgradeOpen){
+    if(upgradeOpen&&!paused){
 
       if(e.key==="1")
         buyUpgrade("health");
@@ -589,7 +679,11 @@ c.addEventListener(
 
     startMusic();
 
-    mouse.down=true;
+    if(!paused&&!gameOver){
+
+      mouse.down=true;
+
+    }
 
   }
 );
@@ -611,32 +705,49 @@ window.addEventListener(
 
 function spawnEnemy(type="goblin"){
 
-  let side=
-    Math.floor(Math.random()*4);
-
   let x,y;
 
 
-  if(side===0){
+  /*
+    Goblins ALWAYS enter through
+    the gate on the right side.
+  */
 
-    x=55;
-    y=75+Math.random()*450;
+  if(type==="goblin"){
 
-  }else if(side===1){
-
-    x=845;
-    y=75+Math.random()*450;
-
-  }else if(side===2){
-
-    x=65+Math.random()*770;
-    y=65;
+    x=GATE.x-28;
+    y=
+      GATE.y+20+
+      Math.random()*
+      (GATE.height-40);
 
   }else{
 
-    x=65+Math.random()*770;
-    y=535;
+    /*
+      Ogres can still enter from the
+      arena edges, keeping them different
+      from normal goblins.
+    */
 
+    const side=
+      Math.floor(Math.random()*3);
+
+    if(side===0){
+
+      x=60;
+      y=90+Math.random()*420;
+
+    }else if(side===1){
+
+      x=70+Math.random()*720;
+      y=70;
+
+    }else{
+
+      x=70+Math.random()*720;
+      y=530;
+
+    }
   }
 
 
@@ -688,7 +799,16 @@ function spawnEnemy(type="goblin"){
 
       attack:0,
       burn:0,
-      burnTick:0
+      burnTick:0,
+
+      /*
+        Small delay makes the goblins
+        visibly come through the gate.
+      */
+
+      gateDelay:
+        20+
+        Math.random()*25
 
     });
 
@@ -760,7 +880,8 @@ function shoot(){
   if(
     fireCooldown>0||
     upgradeOpen||
-    gameOver
+    gameOver||
+    paused
   ){
 
     return;
@@ -822,19 +943,8 @@ function spawnBombPickup(){
 }
 
 
-/*
-  Medium bomb throw range.
-
-  The bomb travels normally and keeps
-  going until it reaches this distance.
-*/
 const BOMB_THROW_DISTANCE=300;
 
-
-/*
-  How long the bomb visually
-  disintegrates after exploding.
-*/
 const BOMB_DISINTEGRATE_TIME=22;
 
 
@@ -843,6 +953,7 @@ function throwBomb(){
   if(
     gameOver||
     upgradeOpen||
+    paused||
     bombCount<=0
   ){
 
@@ -899,17 +1010,7 @@ function explodeBomb(b){
   b.vx=0;
   b.vy=0;
 
-
-  /* Pixel explosion sound */
-
   playBombExplosionSound();
-
-
-  /*
-    Large pixel burst.
-    The bomb itself stays visible while
-    it slowly disintegrates.
-  */
 
   burst(
     b.x,
@@ -917,10 +1018,6 @@ function explodeBomb(b){
     42
   );
 
-
-  /*
-    Extra explosion particles.
-  */
 
   for(
     let i=0;
@@ -947,11 +1044,6 @@ function explodeBomb(b){
 
   }
 
-
-  /*
-    Damage enemies inside the
-    bomb's medium explosion radius.
-  */
 
   for(
     const e of enemies
@@ -1053,6 +1145,10 @@ function regainHeart(){
 function endGame(){
 
   gameOver=true;
+
+  paused=false;
+
+  pauseBtn.textContent="PAUSE";
 
 
   if(score>highscore){
@@ -1182,6 +1278,197 @@ function rectPixel(
 
 
 /* =========================
+   DRAW GATE
+   ========================= */
+
+function drawGate(){
+
+  /*
+    Gate frame.
+  */
+
+  rectPixel(
+    GATE.x-5,
+    GATE.y-5,
+    GATE.width+10,
+    GATE.height+10,
+    "#171717"
+  );
+
+
+  rectPixel(
+    GATE.x,
+    GATE.y,
+    GATE.width,
+    GATE.height,
+    "#252525"
+  );
+
+
+  /*
+    Pixelated stone/metal frame.
+  */
+
+  rectPixel(
+    GATE.x,
+    GATE.y,
+    7,
+    GATE.height,
+    "#555"
+  );
+
+  rectPixel(
+    GATE.x+GATE.width-7,
+    GATE.y,
+    7,
+    GATE.height,
+    "#555"
+  );
+
+  rectPixel(
+    GATE.x,
+    GATE.y,
+    GATE.width,
+    7,
+    "#666"
+  );
+
+  rectPixel(
+    GATE.x,
+    GATE.y+GATE.height-7,
+    GATE.width,
+    7,
+    "#444"
+  );
+
+
+  /*
+    Dark opening.
+  */
+
+  rectPixel(
+    GATE.x+8,
+    GATE.y+8,
+    GATE.width-16,
+    GATE.height-16,
+    "#090909"
+  );
+
+
+  /*
+    Vertical bars.
+  */
+
+  for(
+    let i=0;
+    i<5;
+    i++
+  ){
+
+    const bx=
+      GATE.x+
+      10+
+      i*7;
+
+    rectPixel(
+      bx,
+      GATE.y+10,
+      4,
+      GATE.height-20,
+      "#8a8a8a"
+    );
+
+    rectPixel(
+      bx+1,
+      GATE.y+10,
+      2,
+      GATE.height-20,
+      "#b0b0b0"
+    );
+
+  }
+
+
+  /*
+    Horizontal bars.
+  */
+
+  for(
+    let i=0;
+    i<4;
+    i++
+  ){
+
+    const by=
+      GATE.y+
+      25+
+      i*34;
+
+    rectPixel(
+      GATE.x+8,
+      by,
+      GATE.width-16,
+      5,
+      "#777"
+    );
+
+  }
+
+
+  /*
+    Gate bolts.
+  */
+
+  rectPixel(
+    GATE.x+4,
+    GATE.y+14,
+    4,
+    4,
+    "#aaa"
+  );
+
+  rectPixel(
+    GATE.x+GATE.width-8,
+    GATE.y+14,
+    4,
+    4,
+    "#aaa"
+  );
+
+  rectPixel(
+    GATE.x+4,
+    GATE.y+GATE.height-18,
+    4,
+    4,
+    "#aaa"
+  );
+
+  rectPixel(
+    GATE.x+GATE.width-8,
+    GATE.y+GATE.height-18,
+    4,
+    4,
+    "#aaa"
+  );
+
+
+  /*
+    Green glow showing that this is
+    where the goblins enter.
+  */
+
+  rectPixel(
+    GATE.x-3,
+    GATE.y+GATE.height/2-12,
+    3,
+    24,
+    "#3c8f3d"
+  );
+
+}
+
+
+/* =========================
    HUD
    ========================= */
 
@@ -1197,7 +1484,7 @@ function drawHeart(
     10,
     4,
     full
-      ?" #e83e3e"
+      ?"#e83e3e"
       :"#3a3a3a"
   );
 
@@ -1302,13 +1589,17 @@ function draw(){
   );
 
 
+  /*
+    Bigger arena.
+  */
+
   ctx.fillStyle="#303030";
 
   ctx.fillRect(
-    40,
-    55,
-    820,
-    490
+    ARENA.left,
+    ARENA.top,
+    ARENA.right-ARENA.left,
+    ARENA.bottom-ARENA.top
   );
 
 
@@ -1317,10 +1608,10 @@ function draw(){
   ctx.lineWidth=6;
 
   ctx.strokeRect(
-    40,
-    55,
-    820,
-    490
+    ARENA.left,
+    ARENA.top,
+    ARENA.right-ARENA.left,
+    ARENA.bottom-ARENA.top
   );
 
 
@@ -1328,17 +1619,19 @@ function draw(){
 
   for(
     let i=0;
-    i<70;
+    i<85;
     i++
   ){
 
     const x=
-      55+
-      Math.random()*790;
+      ARENA.left+15+
+      Math.random()*
+      (ARENA.right-ARENA.left-45);
 
     const y=
-      70+
-      Math.random()*460;
+      ARENA.top+15+
+      Math.random()*
+      (ARENA.bottom-ARENA.top-30);
 
 
     rectPixel(
@@ -1351,6 +1644,13 @@ function draw(){
         :"#3b3b3b"
     );
   }
+
+
+  /* =========================
+     GATE
+     ========================= */
+
+  drawGate();
 
 
   /* =========================
@@ -1734,10 +2034,6 @@ function draw(){
     const b of bombs
   ){
 
-    /*
-      Normal flying bomb.
-    */
-
     if(!b.exploded){
 
       rectPixel(
@@ -1773,14 +2069,6 @@ function draw(){
       );
 
     }else{
-
-      /*
-        Slowly disintegrating bomb.
-
-        As disintegrate approaches 0,
-        the bomb becomes smaller and
-        more transparent.
-      */
 
       const progress=
         b.disintegrate/
@@ -1825,11 +2113,6 @@ function draw(){
         "#444"
       );
 
-
-      /*
-        Small pieces falling away from
-        the bomb during disintegration.
-      */
 
       if(
         Math.floor(
@@ -2074,7 +2357,7 @@ function draw(){
 
   rectPixel(
     25,
-    545,
+    535,
     22,
     22,
     "#111"
@@ -2082,7 +2365,7 @@ function draw(){
 
   rectPixel(
     28,
-    548,
+    538,
     16,
     16,
     "#444"
@@ -2090,7 +2373,7 @@ function draw(){
 
   rectPixel(
     32,
-    544,
+    534,
     8,
     5,
     "#777"
@@ -2098,7 +2381,7 @@ function draw(){
 
   rectPixel(
     40,
-    541,
+    531,
     7,
     3,
     "#ddd"
@@ -2110,7 +2393,7 @@ function draw(){
   ctx.fillText(
     "x"+bombCount,
     52,
-    562
+    552
   );
 
 
@@ -2118,7 +2401,7 @@ function draw(){
 
   rectPixel(
     770,
-    548,
+    538,
     18,
     18,
     "#d85b18"
@@ -2126,7 +2409,7 @@ function draw(){
 
   rectPixel(
     775,
-    544,
+    534,
     8,
     25,
     "#ff9b25"
@@ -2134,7 +2417,7 @@ function draw(){
 
   rectPixel(
     777,
-    549,
+    539,
     5,
     10,
     "#ffe27a"
@@ -2149,14 +2432,14 @@ function draw(){
       ?(fireCooldown/60).toFixed(1)
       :"READY",
     800,
-    562
+    552
   );
 
 
   ctx.fillText(
-    "WASD move • Mouse aim • Click fire • Q bomb",
+    "WASD move • Mouse aim • Click fire • Q bomb • P pause",
     25,
-    585
+    582
   );
 
 
@@ -2175,10 +2458,53 @@ function draw(){
 
 
   /* =========================
+     PAUSE SCREEN
+     ========================= */
+
+  if(paused){
+
+    ctx.fillStyle="#000";
+
+    ctx.globalAlpha=.72;
+
+    ctx.fillRect(
+      0,
+      0,
+      W,
+      H
+    );
+
+    ctx.globalAlpha=1;
+
+
+    ctx.fillStyle="#fff";
+
+    ctx.font="42px monospace";
+
+
+    ctx.fillText(
+      "PAUSED",
+      365,
+      270
+    );
+
+
+    ctx.font="18px monospace";
+
+
+    ctx.fillText(
+      "Click RESUME or press P",
+      315,
+      315
+    );
+  }
+
+
+  /* =========================
      UPGRADE SCREEN
      ========================= */
 
-  if(upgradeOpen){
+  if(upgradeOpen&&!paused){
 
     ctx.fillStyle="#0a130d";
 
@@ -2278,7 +2604,7 @@ function draw(){
 
       ctx.fillStyle=
         t==="NOTHING"
-        ?" #183c1d"
+        ?"#183c1d"
         :"#1e3d20";
 
       ctx.fillRect(
@@ -2291,7 +2617,7 @@ function draw(){
 
       ctx.strokeStyle=
         t==="NOTHING"
-        ?" #8ee889"
+        ?"#8ee889"
         :"#65b95b";
 
       ctx.lineWidth=4;
@@ -2413,7 +2739,7 @@ function loop(){
   requestAnimationFrame(loop);
 
 
-  if(!gameOver){
+  if(!gameOver&&!paused){
 
     if(!upgradeOpen){
 
@@ -2605,7 +2931,7 @@ function loop(){
 
       p.x=
         Math.max(
-          55,
+          45,
           Math.min(
             845,
             p.x
@@ -2615,9 +2941,9 @@ function loop(){
 
       p.y=
         Math.max(
-          70,
+          55,
           Math.min(
-            530,
+            545,
             p.y
           )
         );
@@ -2656,10 +2982,10 @@ function loop(){
         balls.filter(
           b=>
             b.life>0&&
-            b.x>40&&
-            b.x<860&&
-            b.y>55&&
-            b.y<545
+            b.x>ARENA.left&&
+            b.x<ARENA.right&&
+            b.y>ARENA.top&&
+            b.y<ARENA.bottom
         );
 
 
@@ -2670,12 +2996,6 @@ function loop(){
       for(
         const b of bombs
       ){
-
-        /*
-          Flying bomb:
-          keep moving until the medium
-          throw distance is reached.
-        */
 
         if(!b.exploded){
 
@@ -2693,11 +3013,6 @@ function loop(){
           b.rotation+=0.15;
 
 
-          /*
-            Explode when it reaches the
-            medium throw radius.
-          */
-
           if(
             b.distance>=BOMB_THROW_DISTANCE
           ){
@@ -2706,12 +3021,6 @@ function loop(){
 
           }
 
-
-          /*
-            Also explode if it hits
-            an enemy before reaching
-            maximum range.
-          */
 
           if(!b.exploded){
 
@@ -2734,18 +3043,13 @@ function loop(){
           }
 
 
-          /*
-            Keep bombs inside the
-            game arena.
-          */
-
           if(
             !b.exploded&&
             (
-              b.x<=40||
-              b.x>=860||
-              b.y<=55||
-              b.y>=545
+              b.x<=ARENA.left||
+              b.x>=ARENA.right||
+              b.y<=ARENA.top||
+              b.y>=ARENA.bottom
             )
           ){
 
@@ -2756,23 +3060,11 @@ function loop(){
 
         }else{
 
-          /*
-            Explosion phase.
-
-            The bomb remains for a short
-            time and slowly disintegrates.
-          */
-
           b.disintegrate--;
 
         }
       }
 
-
-      /*
-        Remove bombs only after their
-        disintegration animation finishes.
-      */
 
       bombs=
         bombs.filter(
@@ -2782,34 +3074,52 @@ function loop(){
         );
 
 
-      /* Enemy movement / combat */
+      /* =========================
+         ENEMY MOVEMENT / COMBAT
+         ========================= */
 
       for(
         const e of enemies
       ){
 
-        const dx=
-          p.x-e.x;
+        /*
+          Goblins pause briefly after
+          coming through the gate.
+        */
 
-        const dy=
-          p.y-e.y;
+        if(
+          e.type==="goblin"&&
+          e.gateDelay>0
+        ){
+
+          e.gateDelay--;
+
+        }else{
+
+          const dx=
+            p.x-e.x;
+
+          const dy=
+            p.y-e.y;
 
 
-        const d=
-          Math.hypot(
-            dx,
-            dy
-          )||1;
+          const d=
+            Math.hypot(
+              dx,
+              dy
+            )||1;
 
 
-        e.x+=
-          dx/d*
-          e.speed;
+          e.x+=
+            dx/d*
+            e.speed;
 
 
-        e.y+=
-          dy/d*
-          e.speed;
+          e.y+=
+            dy/d*
+            e.speed;
+
+        }
 
 
         if(e.attack>0){
@@ -2819,8 +3129,21 @@ function loop(){
         }
 
 
+        const dxCombat=
+          p.x-e.x;
+
+        const dyCombat=
+          p.y-e.y;
+
+        const dCombat=
+          Math.hypot(
+            dxCombat,
+            dyCombat
+          )||1;
+
+
         if(
-          d<e.r+14&&
+          dCombat<e.r+14&&
           e.attack<=0
         ){
 
@@ -2993,3 +3316,4 @@ loop();
 
 </body>
 </html>
+```
