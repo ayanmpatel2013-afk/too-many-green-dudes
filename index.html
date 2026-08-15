@@ -26,36 +26,26 @@ button{
   cursor:pointer;
 }
 
-#fullscreenBtn{
-  position:fixed;
-  top:10px;
-  right:10px;
-  z-index:10;
-  padding:8px 12px;
-  background:#1e3d20;
-  color:#fff;
-  border:2px solid #65b95b;
-  font-size:14px;
-}
-
-#fullscreenBtn:hover{
-  background:#2c5a2f;
-}
-
+#fullscreenBtn,
 #pauseBtn{
   position:fixed;
   top:10px;
-  right:145px;
   z-index:10;
   padding:8px 12px;
-  background:#3d301e;
   color:#fff;
-  border:2px solid #d6b85a;
   font-size:14px;
 }
 
-#pauseBtn:hover{
-  background:#594728;
+#fullscreenBtn{
+  right:10px;
+  background:#1e3d20;
+  border:2px solid #65b95b;
+}
+
+#pauseBtn{
+  right:145px;
+  background:#3d301e;
+  border:2px solid #d6b85a;
 }
 </style>
 </head>
@@ -68,6 +58,7 @@ button{
 <canvas id="game" width="900" height="600"></canvas>
 
 <script>
+"use strict";
 
 /* =========================================================
    CANVAS
@@ -81,11 +72,6 @@ ctx.imageSmoothingEnabled=false;
 const W=900;
 const H=600;
 
-
-/* =========================================================
-   ARENA
-========================================================= */
-
 const ARENA={
   left:160,
   top:45,
@@ -94,10 +80,10 @@ const ARENA={
 };
 
 const GATE={
-  x:845,
-  y:260,
-  w:30,
-  h:120
+  x:835,
+  y:245,
+  w:35,
+  h:150
 };
 
 
@@ -105,9 +91,9 @@ const GATE={
    INPUT
 ========================================================= */
 
-let keys={};
+const keys={};
 
-let mouse={
+const mouse={
   x:450,
   y:300,
   down:false
@@ -126,7 +112,6 @@ let particles=[];
 
 let score=0;
 let coins=0;
-
 let wave=1;
 let elapsed=0;
 
@@ -143,48 +128,12 @@ let upgradeCounts={
   speed:0
 };
 
-
-/* =========================================================
-   HEARTS
-========================================================= */
-
 let hearts=3;
-
 let goblinHits=0;
 let ogreHits=0;
-
 let heartRegen=0;
 
-
-/* =========================================================
-   SHIELD
-========================================================= */
-
-const SHIELD_DURATION=3;
-const SHIELD_SPEED_MULTIPLIER=2;
-
-
-/* =========================================================
-   FIREBALL
-========================================================= */
-
 let fireCooldown=0;
-
-const FIREBALL_SPLASH_RADIUS=90;
-
-
-/* =========================================================
-   BOMBS
-========================================================= */
-
-let bombCount=0;
-let bombPickups=[];
-let bombs=[];
-
-let bombSpawnTimer=20;
-
-const BOMB_THROW_DISTANCE=300;
-const BOMB_DISINTEGRATE_TIME=24;
 
 
 /* =========================================================
@@ -200,10 +149,35 @@ let bossCountdownValue=0;
 
 
 /* =========================================================
-   NORMAL GOBLIN LEVELS
+   GOBLIN LEVELS
 ========================================================= */
 
 let goblinBuffLevel=0;
+
+const GOBLIN_HP_LEVEL_BONUS=.08;
+const GOBLIN_SPEED_LEVEL_BONUS=.035;
+const GOBLIN_DAMAGE_LEVEL_BONUS=.20;
+
+
+/* =========================================================
+   SHIELD
+========================================================= */
+
+const SHIELD_DURATION=3;
+const SHIELD_SPEED_MULTIPLIER=2;
+
+
+/* =========================================================
+   BOMBS
+========================================================= */
+
+let bombCount=0;
+let bombPickups=[];
+let bombs=[];
+let bombSpawnTimer=20;
+
+const BOMB_THROW_DISTANCE=300;
+const BOMB_DISINTEGRATE_TIME=24;
 
 
 /* =========================================================
@@ -225,13 +199,7 @@ let bat={
   pulse:0
 };
 
-
-/* =========================================================
-   BAT ABILITY
-========================================================= */
-
 let batAbility=false;
-
 let batCooldown=0;
 let batSwing=0;
 
@@ -239,13 +207,11 @@ const BAT_COOLDOWN=17;
 
 
 /* =========================================================
-   SKELETON MODE
+   SKELETONS
 ========================================================= */
 
 let skeletonMode=false;
-
 let skeletonLevel=0;
-
 let skeletonUpgradeTimer=27;
 
 
@@ -257,6 +223,8 @@ let audioCtx=null;
 let musicStarted=false;
 let musicTimer=null;
 let musicStep=0;
+
+const SOUND_VOLUME=2;
 
 function startMusic(){
 
@@ -280,14 +248,9 @@ function startMusic(){
       280
     );
 
-  }catch(err){
-
-    console.log("Audio unavailable");
-
-  }
+  }catch(err){}
 
 }
-
 
 function tone(
   frequency,
@@ -300,11 +263,8 @@ function tone(
 
   const now=audioCtx.currentTime;
 
-  const osc=
-    audioCtx.createOscillator();
-
-  const gain=
-    audioCtx.createGain();
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
 
   osc.type=type;
   osc.frequency.value=frequency;
@@ -315,8 +275,8 @@ function tone(
   );
 
   gain.gain.exponentialRampToValueAtTime(
-    volume,
-    now+.02
+    volume*SOUND_VOLUME,
+    now+.01
   );
 
   gain.gain.exponentialRampToValueAtTime(
@@ -329,133 +289,59 @@ function tone(
 
   osc.start(now);
   osc.stop(now+duration+.02);
-
 }
-
 
 function playFireballSound(){
-
-  tone(
-    240,
-    .10,
-    "square",
-    .07
-  );
-
+  tone(240,.10,"square",.07);
 }
-
 
 function playBombExplosionSound(){
-
-  tone(
-    70,
-    .28,
-    "square",
-    .20
-  );
-
+  tone(70,.28,"square",.20);
   setTimeout(
-    ()=>{
-      tone(
-        900,
-        .12,
-        "square",
-        .08
-      );
-    },
+    ()=>tone(900,.12,"square",.08),
     10
   );
-
 }
-
 
 function playBossSound(){
-
-  tone(
-    80,
-    .7,
-    "square",
-    .25
-  );
-
+  tone(80,.7,"square",.25);
 }
-
 
 function playBatSound(){
-
-  tone(
-    150,
-    .18,
-    "square",
-    .18
-  );
+  tone(150,.18,"square",.18);
 
   setTimeout(
-    ()=>{
-      tone(
-        65,
-        .25,
-        "square",
-        .14
-      );
-    },
+    ()=>tone(65,.25,"square",.14),
     40
   );
-
 }
-
 
 function playPickupSound(){
-
-  tone(
-    500,
-    .12,
-    "square",
-    .12
-  );
+  tone(500,.12,"square",.12);
 
   setTimeout(
-    ()=>{
-      tone(
-        800,
-        .12,
-        "square",
-        .10
-      );
-    },
+    ()=>tone(800,.12,"square",.10),
     80
   );
-
 }
-
 
 function playMusicStep(){
 
   if(
     !audioCtx||
     gameOver||
-    paused
+    paused||
+    upgradeOpen||
+    bossCountdown>0
   ){
     return;
   }
 
   const notes=[
-    110,
-    130.81,
-    146.83,
-    164.81,
-    196,
-    164.81,
-    146.83,
-    130.81,
-    110,
-    146.83,
-    164.81,
-    196,
-    220,
-    196,
-    164.81,
-    146.83
+    110,130.81,146.83,164.81,
+    196,164.81,146.83,130.81,
+    110,146.83,164.81,196,
+    220,196,164.81,146.83
   ];
 
   tone(
@@ -466,56 +352,32 @@ function playMusicStep(){
   );
 
   musicStep++;
-
 }
 
 
 /* =========================================================
-   BUTTONS
+   BUTTONS / INPUT
 ========================================================= */
 
-const fullscreenBtn=
-  document.getElementById(
-    "fullscreenBtn"
-  );
+document.getElementById(
+  "fullscreenBtn"
+).onclick=async()=>{
 
-fullscreenBtn.onclick=
-  async()=>{
+  try{
 
-    try{
+    if(!document.fullscreenElement){
 
-      if(!document.fullscreenElement){
+      await document.documentElement.requestFullscreen();
 
-        await document.documentElement.requestFullscreen();
+    }else{
 
-        fullscreenBtn.textContent=
-          "EXIT FULLSCREEN";
+      await document.exitFullscreen();
 
-      }else{
+    }
 
-        await document.exitFullscreen();
+  }catch(err){}
 
-        fullscreenBtn.textContent=
-          "FULLSCREEN";
-
-      }
-
-    }catch(e){}
-
-  };
-
-
-document.addEventListener(
-  "fullscreenchange",
-  ()=>{
-
-    fullscreenBtn.textContent=
-      document.fullscreenElement
-      ?"EXIT FULLSCREEN"
-      :"FULLSCREEN";
-
-  }
-);
+};
 
 
 function togglePause(){
@@ -526,9 +388,7 @@ function togglePause(){
     upgradeOpen||
     bossCountdown>0
   ){
-
     return;
-
   }
 
   paused=!paused;
@@ -539,18 +399,12 @@ function togglePause(){
     paused
     ?"RESUME"
     :"PAUSE";
-
 }
-
 
 document.getElementById(
   "pauseBtn"
 ).onclick=togglePause;
 
-
-/* =========================================================
-   KEYBOARD
-========================================================= */
 
 window.addEventListener(
   "keydown",
@@ -558,57 +412,38 @@ window.addEventListener(
 
     startMusic();
 
-    const k=
-      e.key.toLowerCase();
+    const k=e.key.toLowerCase();
 
     keys[k]=true;
-
-
-    if(
-      k==="r"&&
-      gameOver
-    ){
-
-      reset();
-      return;
-
-    }
-
 
     if(
       k==="p"&&
       !e.repeat
     ){
-
       togglePause();
-
     }
 
+    if(
+      k==="r"&&
+      gameOver
+    ){
+      reset();
+      return;
+    }
 
     if(
       k==="q"&&
       !e.repeat
     ){
-
       throwBomb();
-
     }
-
 
     if(
       k==="f"&&
       !e.repeat
     ){
-
       useBatAbility();
-
     }
-
-
-    /*
-      Upgrade menu captures
-      number keys.
-    */
 
     if(upgradeOpen){
 
@@ -623,7 +458,6 @@ window.addEventListener(
 
       if(e.key==="4")
         buyUpgrade("nothing");
-
     }
 
   }
@@ -633,18 +467,10 @@ window.addEventListener(
 window.addEventListener(
   "keyup",
   e=>{
-
-    keys[
-      e.key.toLowerCase()
-    ]=false;
-
+    keys[e.key.toLowerCase()]=false;
   }
 );
 
-
-/* =========================================================
-   MOUSE
-========================================================= */
 
 c.addEventListener(
   "mousemove",
@@ -668,11 +494,8 @@ c.addEventListener(
 c.addEventListener(
   "mousedown",
   ()=>{
-
     startMusic();
-
     mouse.down=true;
-
   }
 );
 
@@ -680,9 +503,7 @@ c.addEventListener(
 window.addEventListener(
   "mouseup",
   ()=>{
-
     mouse.down=false;
-
   }
 );
 
@@ -694,15 +515,12 @@ window.addEventListener(
 function reset(){
 
   p={
-
     x:430,
     y:305,
 
     speed:3.2,
 
-    /*
-      Slightly stronger starting damage.
-    */
+    /* slightly stronger starting damage */
     damage:34,
 
     maxHp:100,
@@ -710,30 +528,23 @@ function reset(){
 
     shieldTimer:0,
     speedBoostTimer:0
-
   };
-
 
   enemies=[];
   balls=[];
   particles=[];
 
-
   score=0;
   coins=0;
-
   wave=1;
   elapsed=0;
-
 
   gameOver=false;
   paused=false;
   upgradeOpen=false;
 
-
   nextUpgrade=70;
   upgradeCost=10;
-
 
   upgradeCounts={
     health:0,
@@ -741,43 +552,34 @@ function reset(){
     speed:0
   };
 
-
   hearts=3;
-
   goblinHits=0;
   ogreHits=0;
-
   heartRegen=0;
-
 
   fireCooldown=0;
 
-
   bombCount=0;
-
   bombPickups=[];
   bombs=[];
-
   bombSpawnTimer=20;
-
 
   bigBoss=null;
 
   nextBigBoss=200;
-
   bossCountdown=0;
   bossCountdownValue=0;
 
-
   goblinBuffLevel=0;
 
-
   bossDefeated=false;
-
 
   victorySequence=false;
   victoryTimer=0;
 
+  skeletonMode=false;
+  skeletonLevel=0;
+  skeletonUpgradeTimer=27;
 
   batDropped=false;
 
@@ -789,23 +591,13 @@ function reset(){
     pulse:0
   };
 
-
   batAbility=false;
-
   batCooldown=0;
   batSwing=0;
 
-
-  skeletonMode=false;
-  skeletonLevel=0;
-  skeletonUpgradeTimer=27;
-
-
   window.lastBossMark=0;
 
-
   spawnWave(1);
-
 }
 
 
@@ -817,24 +609,21 @@ function gateSpawnPosition(){
 
   return{
 
-    x:GATE.x-4,
+    x:GATE.x-6,
 
     y:
       GATE.y+
       GATE.h/2+
-      (Math.random()-.5)*45
+      (Math.random()-.5)*60
 
   };
-
 }
 
 
-function spawnEnemy(
-  type="goblin"
-){
+function spawnEnemy(type="goblin"){
 
   /*
-    Normal enemies NEVER spawn after
+    Normal enemies never spawn after
     the Big Boss has been defeated.
   */
 
@@ -843,11 +632,8 @@ function spawnEnemy(
     bigBoss||
     bossCountdown>0
   ){
-
     return;
-
   }
-
 
   const pos=
     gateSpawnPosition();
@@ -860,17 +646,15 @@ function spawnEnemy(
 
     const hp=
       260+
-      Math.floor(elapsed/50)*20;
+      Math.floor(
+        elapsed/50
+      )*20;
 
     enemies.push({
 
       type:"ogre",
 
-      x,
-      y,
-
-      spawnX:x,
-      spawnY:y,
+      x,y,
 
       r:30,
 
@@ -896,45 +680,35 @@ function spawnEnemy(
     });
 
     return;
-
   }
 
 
-  const buff=
+  const level=
     goblinBuffLevel;
-
-
-  /*
-    Small normal goblin upgrades.
-  */
 
   const hp=
     Math.round(
-      (45+wave*8)*
-      (1+buff*.10)
+      (45+wave*6)*
+      (1+level*
+        GOBLIN_HP_LEVEL_BONUS)
     );
-
 
   const damage=
     1+
-    buff*.35;
-
+    level*
+    GOBLIN_DAMAGE_LEVEL_BONUS;
 
   const speed=
     .72+
     wave*.018+
-    buff*.035;
-
+    level*
+    GOBLIN_SPEED_LEVEL_BONUS;
 
   enemies.push({
 
     type:"goblin",
 
-    x,
-    y,
-
-    spawnX:x,
-    spawnY:y,
+    x,y,
 
     r:14,
 
@@ -942,7 +716,6 @@ function spawnEnemy(
     maxHp:hp,
 
     speed,
-
     damage,
 
     attack:0,
@@ -953,7 +726,6 @@ function spawnEnemy(
     bossMark:0
 
   });
-
 }
 
 
@@ -964,11 +736,8 @@ function spawnWave(n){
     bigBoss||
     bossCountdown>0
   ){
-
     return;
-
   }
-
 
   for(
     let i=0;
@@ -979,7 +748,6 @@ function spawnWave(n){
     spawnEnemy("goblin");
 
   }
-
 }
 
 
@@ -993,15 +761,11 @@ function spawnBigBoss(){
     bigBoss||
     bossDefeated
   ){
-
     return;
-
   }
-
 
   const pos=
     gateSpawnPosition();
-
 
   bigBoss={
 
@@ -1015,9 +779,7 @@ function spawnBigBoss(){
     hp:2400,
     maxHp:2400,
 
-    /*
-      Requested Big Boss speed.
-    */
+    /* requested boss speed */
     speed:3.1,
 
     attack:0,
@@ -1025,65 +787,52 @@ function spawnBigBoss(){
     burn:0,
     burnTick:0,
 
-    rotation:0,
-
-    spawnFlash:35
+    animation:0
 
   };
 
-
-  /*
-    Clear normal enemies when
-    Big Boss enters.
-  */
-
   enemies=[];
   balls=[];
+  bombPickups=[];
 
   playBossSound();
-
 }
 
+
+/* =========================================================
+   BIG BOSS DEFEAT
+========================================================= */
 
 function defeatBigBoss(){
 
   if(
     !bigBoss||
-    bigBoss.type!=="bigboss"||
-    victorySequence
+    bigBoss.type!=="bigboss"
   ){
-
     return;
-
   }
-
-
-  score+=50;
-  coins+=50;
-
 
   const bx=bigBoss.x;
   const by=bigBoss.y;
 
+  score+=50;
+  coins+=50;
 
   /*
-    Permanently stop normal spawning.
+    Stop every normal spawning system.
   */
 
   bossDefeated=true;
-
   skeletonMode=true;
-
 
   enemies=[];
   balls=[];
   bombPickups=[];
   bombs=[];
 
-
   /*
-    Keep Big Boss alive as a
-    defeated object for the cutscene.
+    Keep the boss object alive ONLY for
+    the disintegration animation.
   */
 
   bigBoss={
@@ -1103,24 +852,25 @@ function defeatBigBoss(){
 
   };
 
-
   victorySequence=true;
   victoryTimer=4;
 
-
   batDropped=false;
 
-  bat.active=false;
-  bat.collected=false;
-
+  bat={
+    x:0,
+    y:0,
+    active:false,
+    collected:false,
+    pulse:0
+  };
 
   playBossSound();
-
 }
 
 
 /* =========================================================
-   SKELETONS
+   SKELETON SYSTEM
 ========================================================= */
 
 function createSkeletonGoblin(){
@@ -1151,12 +901,9 @@ function createSkeletonGoblin(){
     attack:0,
 
     burn:0,
-    burnTick:0,
-
-    bossMark:0
+    burnTick:0
 
   };
-
 }
 
 
@@ -1188,33 +935,25 @@ function createSkeletonOgre(){
     attack:0,
 
     burn:0,
-    burnTick:0,
-
-    bossMark:0
+    burnTick:0
 
   };
-
 }
 
 
 function startSkeletons(){
 
-  /*
-    Prevent duplicate resets.
-  */
-
   skeletonMode=true;
 
   enemies=[];
 
-
   /*
-    Six skeleton goblins.
+    Several skeleton goblins.
   */
 
   for(
     let i=0;
-    i<6;
+    i<7;
     i++
   ){
 
@@ -1224,25 +963,16 @@ function startSkeletons(){
 
   }
 
-
   /*
-    One skeleton mini-boss.
+    Skeleton mini boss.
   */
 
   enemies.push(
     createSkeletonOgre()
   );
 
-
   skeletonLevel=0;
-
-  /*
-    First upgrade occurs 27 seconds
-    after the bat is collected.
-  */
-
   skeletonUpgradeTimer=27;
-
 }
 
 
@@ -1250,47 +980,36 @@ function upgradeSkeletons(){
 
   skeletonLevel++;
 
-
   for(
     const e of enemies
   ){
 
-    /*
-      Small but noticeable increases.
-    */
-
     e.maxHp=
       Math.round(
-        e.maxHp*1.10
+        e.maxHp*1.15
       );
 
     e.hp=e.maxHp;
 
+    e.speed*=1.06;
 
-    e.speed*=1.04;
+    if(
+      e.type==="skeletonGoblin"
+    ){
 
+      e.damage*=1.10;
 
-    e.damage*=1.08;
+    }
 
-  }
+    if(
+      e.type==="skeletonOgre"
+    ){
 
+      e.damage*=1.10;
 
-  /*
-    Upgrade particles.
-  */
-
-  for(
-    const e of enemies
-  ){
-
-    burst(
-      e.x,
-      e.y,
-      5
-    );
+    }
 
   }
-
 }
 
 
@@ -1300,13 +1019,18 @@ function upgradeSkeletons(){
 
 function updateVictory(){
 
-  if(!victorySequence){
-    return;
-  }
+  if(!victorySequence)return;
 
+  /*
+    The timer continues even though the
+    normal game is completely frozen.
+  */
 
   victoryTimer-=1/60;
 
+  /*
+    Big Boss disintegration animation.
+  */
 
   if(
     bigBoss&&
@@ -1319,24 +1043,19 @@ function updateVictory(){
         victoryTimer
       );
 
-
-    /*
-      Disintegration particles.
-    */
-
     if(
-      Math.random()<.60
+      Math.random()<.65
     ){
 
       particles.push({
 
         x:
           bigBoss.x+
-          (Math.random()-.5)*90,
+          (Math.random()-.5)*80,
 
         y:
           bigBoss.y+
-          (Math.random()-.5)*110,
+          (Math.random()-.5)*100,
 
         vx:
           (Math.random()-.5)*3,
@@ -1346,12 +1065,16 @@ function updateVictory(){
 
         life:
           18+
-          Math.random()*35
+          Math.random()*30
 
       });
 
     }
 
+    /*
+      Once animation finishes,
+      remove boss and drop bat.
+    */
 
     if(
       victoryTimer<=0
@@ -1364,40 +1087,29 @@ function updateVictory(){
     }
 
   }
-
 }
 
 
 function dropBat(){
 
-  if(batDropped){
-    return;
-  }
-
+  if(batDropped)return;
 
   batDropped=true;
 
-
   bat.x=W/2;
-  bat.y=H/2+50;
-
+  bat.y=H/2+55;
 
   bat.active=true;
   bat.collected=false;
   bat.pulse=0;
-
-
-  /*
-    The cutscene is now waiting
-    for the player to touch the bat.
-  */
-
 }
 
 
-/* =========================================================
-   BAT PICKUP
-========================================================= */
+/*
+  IMPORTANT FIX:
+  The player is allowed to move after
+  the disintegration has finished.
+*/
 
 function collectBat(){
 
@@ -1406,11 +1118,8 @@ function collectBat(){
     bat.collected||
     gameOver
   ){
-
     return;
-
   }
-
 
   const d=
     Math.hypot(
@@ -1418,35 +1127,28 @@ function collectBat(){
       p.y-bat.y
     );
 
-
   if(d<40){
 
     bat.collected=true;
     bat.active=false;
 
-
     batAbility=true;
 
-
     /*
-      End the victory sequence.
+      The victory scene is now finished.
     */
 
     victorySequence=false;
 
-
     /*
-      IMPORTANT:
-      Skeletons start immediately.
+      Start the skeleton world.
     */
 
     startSkeletons();
 
-
     playPickupSound();
 
   }
-
 }
 
 
@@ -1465,23 +1167,17 @@ function useBatAbility(){
     victorySequence||
     bossCountdown>0
   ){
-
     return;
-
   }
 
-
-  batCooldown=
-    BAT_COOLDOWN;
-
-  batSwing=.60;
-
+  batCooldown=BAT_COOLDOWN;
+  batSwing=.55;
 
   playBatSound();
 
-
   /*
-    Kill every enemy instantly.
+    Instant kill EVERYTHING currently
+    spawned, including skeletons.
   */
 
   for(
@@ -1498,33 +1194,56 @@ function useBatAbility(){
 
   }
 
-
   enemies=[];
 
+  /*
+    Extra swing particles.
+  */
+
+  for(
+    let i=0;
+    i<20;
+    i++
+  ){
+
+    particles.push({
+
+      x:p.x,
+      y:p.y,
+
+      vx:
+        (Math.random()-.5)*9,
+
+      vy:
+        (Math.random()-.5)*9,
+
+      life:
+        15+
+        Math.random()*20
+
+    });
+
+  }
 }
 
 
 /* =========================================================
-   HEART / SHIELD
+   PLAYER DAMAGE
 ========================================================= */
 
 function damagePlayer(e){
 
   e.attack=45;
 
-
   /*
-    Shield blocks all damage.
+    Shield blocks damage.
   */
 
   if(
     p.shieldTimer>0
   ){
-
     return;
-
   }
-
 
   if(
     e.type==="goblin"||
@@ -1534,13 +1253,11 @@ function damagePlayer(e){
     goblinHits+=
       e.damage||1;
 
-
     if(
       goblinHits>=4
     ){
 
       goblinHits=0;
-
       loseHeart();
 
     }
@@ -1549,46 +1266,26 @@ function damagePlayer(e){
 
     ogreHits++;
 
-
     if(
       ogreHits>=2
     ){
 
       ogreHits=0;
-
       loseHeart();
 
     }
 
   }
-
 }
 
 
 function loseHeart(){
 
-  if(
-    hearts<=0||
-    p.shieldTimer>0
-  ){
-
-    return;
-
-  }
-
+  if(hearts<=0)return;
 
   hearts--;
 
-
   heartRegen=30;
-
-
-  /*
-    Three seconds:
-    - invincible
-    - blue shield
-    - 2x speed
-  */
 
   p.shieldTimer=
     SHIELD_DURATION;
@@ -1596,21 +1293,8 @@ function loseHeart(){
   p.speedBoostTimer=
     SHIELD_DURATION;
 
-
-  /*
-    Reset hit counters.
-  */
-
   goblinHits=0;
   ogreHits=0;
-
-
-  burst(
-    p.x,
-    p.y,
-    30
-  );
-
 
   if(
     hearts<=0
@@ -1619,32 +1303,6 @@ function loseHeart(){
     endGame();
 
   }
-
-}
-
-
-function updateShield(){
-
-  if(
-    p.shieldTimer>0
-  ){
-
-    p.shieldTimer-=1/60;
-
-    p.speedBoostTimer-=1/60;
-
-
-    if(
-      p.shieldTimer<=0
-    ){
-
-      p.shieldTimer=0;
-      p.speedBoostTimer=0;
-
-    }
-
-  }
-
 }
 
 
@@ -1655,21 +1313,15 @@ function regainHeart(){
   ){
 
     hearts++;
-
     heartRegen=0;
 
   }
-
 }
 
 
 function endGame(){
 
   gameOver=true;
-
-  p.shieldTimer=0;
-  p.speedBoostTimer=0;
-
 
   const high=
     Number(
@@ -1678,10 +1330,7 @@ function endGame(){
       )||0
     );
 
-
-  if(
-    score>high
-  ){
+  if(score>high){
 
     localStorage.setItem(
       "pixelNatureHighscore",
@@ -1689,7 +1338,6 @@ function endGame(){
     );
 
   }
-
 }
 
 
@@ -1699,33 +1347,23 @@ function endGame(){
 
 function buyUpgrade(kind){
 
-  /*
-    Nothing closes the menu.
-  */
-
   if(
     kind==="nothing"
   ){
 
     upgradeOpen=false;
-
     return;
 
   }
-
 
   if(
     !upgradeOpen||
     coins<upgradeCost
   ){
-
     return;
-
   }
 
-
   coins-=upgradeCost;
-
 
   if(
     kind==="health"
@@ -1741,7 +1379,6 @@ function buyUpgrade(kind){
 
   }
 
-
   if(
     kind==="damage"
   ){
@@ -1749,7 +1386,6 @@ function buyUpgrade(kind){
     p.damage+=14;
 
   }
-
 
   if(
     kind==="speed"
@@ -1759,19 +1395,17 @@ function buyUpgrade(kind){
 
   }
 
-
   upgradeCounts[kind]++;
 
   upgradeCost+=10;
 
-
   /*
-    Closing the menu unfreezes
-    the game on the next frame.
+    This is the only way the upgrade
+    screen closes, so the game remains
+    frozen until a choice is made.
   */
 
   upgradeOpen=false;
-
 }
 
 
@@ -1789,11 +1423,8 @@ function shoot(){
     victorySequence||
     bossCountdown>0
   ){
-
     return;
-
   }
-
 
   const a=
     Math.atan2(
@@ -1801,32 +1432,28 @@ function shoot(){
       mouse.x-p.x
     );
 
-
   balls.push({
 
     x:p.x,
     y:p.y,
 
-    vx:
-      Math.cos(a)*8,
-
-    vy:
-      Math.sin(a)*8,
+    vx:Math.cos(a)*8,
+    vy:Math.sin(a)*8,
 
     r:7,
-
     life:90
 
   });
 
-
   fireCooldown=60;
 
-
   playFireballSound();
-
 }
 
+
+/*
+  Large fireball splash.
+*/
 
 function fireballSplash(
   x,
@@ -1834,51 +1461,35 @@ function fireballSplash(
   directHit
 ){
 
-  /*
-    Large splash damage.
-  */
+  const radius=85;
+
+  burst(
+    x,
+    y,
+    18
+  );
 
   for(
     const e of enemies
   ){
 
-    if(
-      e===directHit
-    ){
-
-      continue;
-
-    }
-
+    if(e===directHit)continue;
 
     const d=
       Math.hypot(
-        x-e.x,
-        y-e.y
+        e.x-x,
+        e.y-y
       );
 
-
     if(
-      d<=FIREBALL_SPLASH_RADIUS
+      d<=radius
     ){
 
-      const falloff=
-        1-
-        d/
-        FIREBALL_SPLASH_RADIUS;
-
-
-      const damage=
+      e.hp-=
         Math.max(
           8,
-          p.damage*
-          .55*
-          falloff
+          p.damage*.55
         );
-
-
-      e.hp-=damage;
-
 
       e.burn=
         Math.max(
@@ -1891,16 +1502,333 @@ function fireballSplash(
     }
 
   }
-
-
-  burst(
-    x,
-    y,
-    14
-  );
-
 }
 
+
+/* =========================================================
+   BOMBS
+========================================================= */
+
+function spawnBombPickup(){
+
+  if(
+    bossDefeated||
+    bigBoss||
+    bossCountdown>0
+  ){
+    return;
+  }
+
+  bombPickups.push({
+
+    x:
+      ARENA.left+
+      50+
+      Math.random()*
+      (
+        ARENA.right-
+        ARENA.left-
+        100
+      ),
+
+    y:
+      90+
+      Math.random()*430,
+
+    life:7
+
+  });
+}
+
+
+function throwBomb(){
+
+  if(
+    gameOver||
+    upgradeOpen||
+    paused||
+    victorySequence||
+    bossCountdown>0||
+    bombCount<=0
+  ){
+    return;
+  }
+
+  const a=
+    Math.atan2(
+      mouse.y-p.y,
+      mouse.x-p.x
+    );
+
+  bombCount--;
+
+  bombs.push({
+
+    x:p.x,
+    y:p.y,
+
+    vx:Math.cos(a)*7,
+    vy:Math.sin(a)*7,
+
+    life:120,
+
+    r:9,
+
+    distance:0,
+
+    exploded:false,
+
+    disintegrate:0,
+
+    rotation:0
+
+  });
+}
+
+
+function explodeBomb(b){
+
+  if(b.exploded)return;
+
+  b.exploded=true;
+
+  b.disintegrate=
+    BOMB_DISINTEGRATE_TIME;
+
+  b.vx=0;
+  b.vy=0;
+
+  playBombExplosionSound();
+
+  burst(
+    b.x,
+    b.y,
+    45
+  );
+
+  /*
+    Big Boss takes 20%.
+  */
+
+  if(
+    bigBoss&&
+    bigBoss.type==="bigboss"
+  ){
+
+    const d=
+      Math.hypot(
+        b.x-bigBoss.x,
+        b.y-bigBoss.y
+      );
+
+    if(d<145){
+
+      bigBoss.hp-=
+        bigBoss.maxHp*.20;
+
+      bigBoss.burn=
+        Math.max(
+          bigBoss.burn,
+          42
+        );
+
+    }
+  }
+
+  /*
+    Large enemy splash.
+  */
+
+  for(
+    const e of enemies
+  ){
+
+    const d=
+      Math.hypot(
+        b.x-e.x,
+        b.y-e.y
+      );
+
+    if(d<120){
+
+      e.hp-=
+        (
+          e.type==="skeletonOgre"||
+          e.type==="ogre"
+        )
+        ?e.maxHp*.50
+        :e.maxHp*.75;
+
+      e.burn=
+        Math.max(
+          e.burn,
+          42
+        );
+
+      e.burnTick=0;
+
+    }
+  }
+}
+
+
+function updateBombs(){
+
+  for(
+    const b of bombs
+  ){
+
+    if(!b.exploded){
+
+      b.x+=b.vx;
+      b.y+=b.vy;
+
+      b.distance+=
+        Math.hypot(
+          b.vx,
+          b.vy
+        );
+
+      b.life--;
+      b.rotation+=.15;
+
+      if(
+        b.distance>=
+        BOMB_THROW_DISTANCE
+      ){
+        explodeBomb(b);
+      }
+
+      if(!b.exploded){
+
+        const hit=
+          enemies.find(
+            e=>
+              Math.hypot(
+                b.x-e.x,
+                b.y-e.y
+              )<
+              e.r+b.r
+          );
+
+        if(hit){
+          explodeBomb(b);
+        }
+      }
+
+      if(
+        !b.exploded&&
+        (
+          b.x<=ARENA.left||
+          b.x>=ARENA.right||
+          b.y<=ARENA.top||
+          b.y>=ARENA.bottom
+        )
+      ){
+        explodeBomb(b);
+      }
+
+    }else{
+
+      b.disintegrate--;
+
+    }
+  }
+
+  bombs=
+    bombs.filter(
+      b=>
+        !b.exploded||
+        b.disintegrate>0
+    );
+}
+
+
+/* =========================================================
+   PLAYER UPDATE
+========================================================= */
+
+function updatePlayer(){
+
+  /*
+    FIXED:
+    Player is blocked during the actual
+    disintegration, but NOT while the bat
+    is waiting to be collected.
+  */
+
+  if(
+    upgradeOpen||
+    gameOver||
+    (
+      victorySequence&&
+      victoryTimer>0
+    )
+  ){
+    return;
+  }
+
+  let dx=
+    (
+      keys.d||
+      keys.arrowright
+      ?1:0
+    )-
+    (
+      keys.a||
+      keys.arrowleft
+      ?1:0
+    );
+
+  let dy=
+    (
+      keys.s||
+      keys.arrowdown
+      ?1:0
+    )-
+    (
+      keys.w||
+      keys.arrowup
+      ?1:0
+    );
+
+  const m=
+    Math.hypot(dx,dy)||1;
+
+  let speed=p.speed;
+
+  if(
+    p.speedBoostTimer>0
+  ){
+    speed*=SHIELD_SPEED_MULTIPLIER;
+  }
+
+  p.x+=dx/m*speed;
+  p.y+=dy/m*speed;
+
+  p.x=
+    Math.max(
+      ARENA.left+15,
+      Math.min(
+        ARENA.right-20,
+        p.x
+      )
+    );
+
+  p.y=
+    Math.max(
+      ARENA.top+20,
+      Math.min(
+        ARENA.bottom-30,
+        p.y
+      )
+    );
+}
+
+
+/* =========================================================
+   FIREBALL UPDATE
+========================================================= */
 
 function updateBalls(){
 
@@ -1913,18 +1841,10 @@ function updateBalls(){
 
     b.life--;
 
-
-    if(
-      b.life<=0
-    ){
-
-      continue;
-
-    }
-
+    if(b.life<=0)continue;
 
     /*
-      Big Boss hit.
+      Big Boss.
     */
 
     if(
@@ -1939,7 +1859,6 @@ function updateBalls(){
 
       bigBoss.hp-=p.damage;
 
-
       bigBoss.burn=
         Math.max(
           bigBoss.burn,
@@ -1948,27 +1867,18 @@ function updateBalls(){
 
       bigBoss.burnTick=0;
 
-
       fireballSplash(
         b.x,
         b.y,
         null
       );
 
-
       b.life=0;
 
       continue;
-
     }
 
-
-    /*
-      Enemy hit.
-    */
-
     let hit=null;
-
 
     for(
       const e of enemies
@@ -1986,18 +1896,11 @@ function updateBalls(){
         break;
 
       }
-
     }
-
 
     if(hit){
 
-      const impactX=b.x;
-      const impactY=b.y;
-
-
       hit.hp-=p.damage;
-
 
       hit.burn=
         Math.max(
@@ -2007,463 +1910,37 @@ function updateBalls(){
 
       hit.burnTick=0;
 
-
       fireballSplash(
-        impactX,
-        impactY,
+        b.x,
+        b.y,
         hit
       );
 
+      burst(
+        b.x,
+        b.y,
+        10
+      );
 
       b.life=0;
 
-
-      /*
-        Additional nearby splash.
-      */
-
-      for(
-        const other of enemies
-      ){
-
-        if(
-          other!==hit&&
-          other.hp>0&&
-          Math.hypot(
-            other.x-impactX,
-            other.y-impactY
-          )<55
-        ){
-
-          other.hp-=
-            Math.max(
-              5,
-              p.damage*.30
-            );
-
-        }
-
-      }
-
     }
-
   }
-
 
   balls=
     balls.filter(
       b=>
         b.life>0&&
-        b.x>ARENA.left-30&&
-        b.x<ARENA.right+30&&
-        b.y>ARENA.top-30&&
-        b.y<ARENA.bottom+30
+        b.x>ARENA.left&&
+        b.x<ARENA.right&&
+        b.y>ARENA.top&&
+        b.y<ARENA.bottom
     );
-
 }
 
 
 /* =========================================================
-   BOMBS
-========================================================= */
-
-function spawnBombPickup(){
-
-  if(
-    bigBoss||
-    bossCountdown>0||
-    bossDefeated
-  ){
-
-    return;
-
-  }
-
-
-  const x=
-    ARENA.left+
-    60+
-    Math.random()*
-    (ARENA.right-
-     ARENA.left-
-     120);
-
-
-  const y=
-    90+
-    Math.random()*420;
-
-
-  bombPickups.push({
-
-    x,
-    y,
-
-    life:7
-
-  });
-
-}
-
-
-function throwBomb(){
-
-  if(
-    gameOver||
-    upgradeOpen||
-    paused||
-    victorySequence||
-    bossCountdown>0||
-    bombCount<=0
-  ){
-
-    return;
-
-  }
-
-
-  const a=
-    Math.atan2(
-      mouse.y-p.y,
-      mouse.x-p.x
-    );
-
-
-  bombCount--;
-
-
-  bombs.push({
-
-    x:p.x,
-    y:p.y,
-
-    vx:
-      Math.cos(a)*7,
-
-    vy:
-      Math.sin(a)*7,
-
-    life:120,
-
-    r:9,
-
-    distance:0,
-
-    exploded:false,
-
-    disintegrate:0,
-
-    rotation:0
-
-  });
-
-}
-
-
-function explodeBomb(b){
-
-  if(b.exploded){
-    return;
-  }
-
-
-  b.exploded=true;
-
-  b.disintegrate=
-    BOMB_DISINTEGRATE_TIME;
-
-  b.vx=0;
-  b.vy=0;
-
-
-  playBombExplosionSound();
-
-
-  burst(
-    b.x,
-    b.y,
-    45
-  );
-
-
-  /*
-    Big Boss takes 20%.
-  */
-
-  if(
-    bigBoss&&
-    bigBoss.type==="bigboss"
-  ){
-
-    const d=
-      Math.hypot(
-        b.x-bigBoss.x,
-        b.y-bigBoss.y
-      );
-
-
-    if(
-      d<145
-    ){
-
-      bigBoss.hp-=
-        bigBoss.maxHp*.20;
-
-      bigBoss.burn=
-        Math.max(
-          bigBoss.burn,
-          42
-        );
-
-    }
-
-  }
-
-
-  /*
-    Large enemy damage.
-  */
-
-  for(
-    const e of enemies
-  ){
-
-    const d=
-      Math.hypot(
-        b.x-e.x,
-        b.y-e.y
-      );
-
-
-    if(
-      d<120
-    ){
-
-      e.hp-=
-        e.type==="ogre"||
-        e.type==="skeletonOgre"
-        ?e.maxHp*.50
-        :e.maxHp*.75;
-
-
-      e.burn=
-        Math.max(
-          e.burn,
-          42
-        );
-
-      e.burnTick=0;
-
-    }
-
-  }
-
-}
-
-
-function updateBombs(){
-
-  for(
-    const b of bombs
-  ){
-
-    if(
-      !b.exploded
-    ){
-
-      b.x+=b.vx;
-      b.y+=b.vy;
-
-      b.distance+=
-        Math.hypot(
-          b.vx,
-          b.vy
-        );
-
-      b.life--;
-
-      b.rotation+=.15;
-
-
-      if(
-        b.distance>=
-        BOMB_THROW_DISTANCE
-      ){
-
-        explodeBomb(b);
-
-      }
-
-
-      if(
-        !b.exploded
-      ){
-
-        for(
-          const e of enemies
-        ){
-
-          if(
-            Math.hypot(
-              b.x-e.x,
-              b.y-e.y
-            )<
-            e.r+b.r
-          ){
-
-            explodeBomb(b);
-            break;
-
-          }
-
-        }
-
-      }
-
-
-      if(
-        !b.exploded&&
-        (
-          b.x<=ARENA.left||
-          b.x>=ARENA.right||
-          b.y<=ARENA.top||
-          b.y>=ARENA.bottom
-        )
-      ){
-
-        explodeBomb(b);
-
-      }
-
-    }else{
-
-      b.disintegrate--;
-
-    }
-
-  }
-
-
-  bombs=
-    bombs.filter(
-      b=>
-        !b.exploded||
-        b.disintegrate>0
-    );
-
-}
-
-
-/* =========================================================
-   PLAYER
-========================================================= */
-
-function updatePlayer(){
-
-  /*
-    Cannot move during the actual
-    Big Boss disintegration animation.
-    Can move after the bat drops.
-  */
-
-  if(
-    upgradeOpen||
-    gameOver||
-    (
-      victorySequence&&
-      victoryTimer>0
-    )
-  ){
-
-    return;
-
-  }
-
-
-  let dx=
-    (
-      keys.d||
-      keys.arrowright
-      ?1
-      :0
-    )-
-    (
-      keys.a||
-      keys.arrowleft
-      ?1
-      :0
-    );
-
-
-  let dy=
-    (
-      keys.s||
-      keys.arrowdown
-      ?1
-      :0
-    )-
-    (
-      keys.w||
-      keys.arrowup
-      ?1
-      :0
-    );
-
-
-  const m=
-    Math.hypot(
-      dx,
-      dy
-    )||1;
-
-
-  let speed=
-    p.speed;
-
-
-  if(
-    p.speedBoostTimer>0
-  ){
-
-    speed*=
-      SHIELD_SPEED_MULTIPLIER;
-
-  }
-
-
-  p.x+=
-    dx/m*
-    speed;
-
-  p.y+=
-    dy/m*
-    speed;
-
-
-  p.x=
-    Math.max(
-      ARENA.left+15,
-      Math.min(
-        ARENA.right-20,
-        p.x
-      )
-    );
-
-
-  p.y=
-    Math.max(
-      ARENA.top+20,
-      Math.min(
-        ARENA.bottom-30,
-        p.y
-      )
-    );
-
-}
-
-
-/* =========================================================
-   ENEMIES
+   ENEMY UPDATE
 ========================================================= */
 
 function updateEnemies(){
@@ -2478,13 +1955,10 @@ function updateEnemies(){
     const dy=
       p.y-e.y;
 
-
     const d=
       Math.hypot(
-        dx,
-        dy
+        dx,dy
       )||1;
-
 
     e.x+=
       dx/d*
@@ -2494,19 +1968,12 @@ function updateEnemies(){
       dy/d*
       e.speed;
 
-
-    if(
-      e.attack>0
-    ){
-
+    if(e.attack>0){
       e.attack--;
-
     }
 
-
     if(
-      d<
-      e.r+14&&
+      d<e.r+14&&
       e.attack<=0
     ){
 
@@ -2514,96 +1981,75 @@ function updateEnemies(){
 
     }
 
-
-    /*
-      Burn damage.
-    */
-
-    if(
-      e.burn>0
-    ){
+    if(e.burn>0){
 
       e.burn--;
-
       e.burnTick++;
-
 
       if(
         e.burnTick%7===0
       ){
 
         e.hp-=
-          e.type==="skeletonGoblin"||
-          e.type==="skeletonOgre"
+          (
+            e.type==="skeletonOgre"||
+            e.type==="skeletonGoblin"
+          )
           ?2.5
           :2;
 
       }
-
     }
-
   }
-
-
-  /*
-    Remove dead enemies.
-  */
 
   const dead=
     enemies.filter(
       e=>e.hp<=0
     );
 
+  for(
+    const e of dead
+  ){
 
-  dead.forEach(
-    killEnemy
-  );
+    let reward=1;
 
+    if(
+      e.type==="ogre"
+    ){
+      reward=7;
+    }
+
+    if(
+      e.type==="skeletonGoblin"
+    ){
+      reward=2;
+    }
+
+    if(
+      e.type==="skeletonOgre"
+    ){
+      reward=10;
+    }
+
+    coins+=reward;
+    score+=reward;
+
+    burst(
+      e.x,
+      e.y,
+      15
+    );
+  }
 
   enemies=
     enemies.filter(
       e=>e.hp>0
     );
-
-}
-
-
-function killEnemy(e){
-
-  if(
-    e.type==="ogre"||
-    e.type==="skeletonOgre"
-  ){
-
-    coins+=7;
-    score+=7;
-
-
-    burst(
-      e.x,
-      e.y,
-      25
-    );
-
-  }else{
-
-    coins+=1;
-    score++;
-
-
-    burst(
-      e.x,
-      e.y,
-      12
-    );
-
-  }
-
 }
 
 
 /* =========================================================
-   BIG BOSS UPDATE
+   BOSS UPDATE
 ========================================================= */
 
 function updateBoss(){
@@ -2612,11 +2058,8 @@ function updateBoss(){
     !bigBoss||
     bigBoss.type!=="bigboss"
   ){
-
     return;
-
   }
-
 
   const dx=
     p.x-bigBoss.x;
@@ -2624,35 +2067,25 @@ function updateBoss(){
   const dy=
     p.y-bigBoss.y;
 
-
   const d=
-    Math.hypot(
-      dx,
-      dy
-    )||1;
+    Math.hypot(dx,dy)||1;
 
+  /*
+    Boss speed = 3.1.
+  */
 
   bigBoss.x+=
-    dx/d*
-    bigBoss.speed;
+    dx/d*3.1;
 
   bigBoss.y+=
-    dy/d*
-    bigBoss.speed;
+    dy/d*3.1;
 
-
-  if(
-    bigBoss.attack>0
-  ){
-
+  if(bigBoss.attack>0){
     bigBoss.attack--;
-
   }
 
-
   if(
-    d<
-    bigBoss.r+16&&
+    d<bigBoss.r+16&&
     bigBoss.attack<=0
   ){
 
@@ -2662,15 +2095,10 @@ function updateBoss(){
 
   }
 
-
-  if(
-    bigBoss.burn>0
-  ){
+  if(bigBoss.burn>0){
 
     bigBoss.burn--;
-
     bigBoss.burnTick++;
-
 
     if(
       bigBoss.burnTick%7===0
@@ -2679,9 +2107,7 @@ function updateBoss(){
       bigBoss.hp-=3;
 
     }
-
   }
-
 
   if(
     bigBoss.hp<=0
@@ -2690,13 +2116,33 @@ function updateBoss(){
     defeatBigBoss();
 
   }
-
 }
 
 
 /* =========================================================
-   PARTICLES
+   SHIELD / PARTICLES
 ========================================================= */
+
+function updateShield(){
+
+  if(
+    p.shieldTimer>0
+  ){
+
+    p.shieldTimer-=1/60;
+    p.speedBoostTimer-=1/60;
+
+    if(
+      p.shieldTimer<=0
+    ){
+
+      p.shieldTimer=0;
+      p.speedBoostTimer=0;
+
+    }
+  }
+}
+
 
 function burst(
   x,
@@ -2712,8 +2158,7 @@ function burst(
 
     particles.push({
 
-      x,
-      y,
+      x,y,
 
       vx:
         (Math.random()-.5)*5,
@@ -2728,7 +2173,6 @@ function burst(
     });
 
   }
-
 }
 
 
@@ -2741,32 +2185,23 @@ function updateParticles(){
     s.x+=s.vx;
     s.y+=s.vy;
 
-    s.vx*=.98;
-    s.vy*=.98;
-
     s.life--;
 
   }
-
 
   particles=
     particles.filter(
       s=>s.life>0
     );
-
 }
 
 
 /* =========================================================
-   PIXEL DRAW HELPER
+   DRAW HELPERS
 ========================================================= */
 
 function rectPixel(
-  x,
-  y,
-  w,
-  h,
-  color
+  x,y,w,h,color
 ){
 
   ctx.fillStyle=color;
@@ -2777,7 +2212,6 @@ function rectPixel(
     w,
     h
   );
-
 }
 
 
@@ -2787,39 +2221,48 @@ function rectPixel(
 
 function drawGate(){
 
-  /*
-    Large outer stone frame.
-  */
-
   rectPixel(
-    GATE.x-14,
-    GATE.y-14,
-    GATE.w+28,
-    GATE.h+28,
+    GATE.x-16,
+    GATE.y-16,
+    GATE.w+32,
+    GATE.h+32,
     "#111"
   );
 
-
   rectPixel(
-    GATE.x-11,
-    GATE.y-11,
-    GATE.w+22,
-    GATE.h+22,
-    "#5b402c"
+    GATE.x-12,
+    GATE.y-12,
+    GATE.w+24,
+    GATE.h+24,
+    "#5c3a25"
   );
 
-
   rectPixel(
-    GATE.x-7,
-    GATE.y-7,
-    GATE.w+14,
-    GATE.h+14,
-    "#8b633c"
+    GATE.x-8,
+    GATE.y-8,
+    GATE.w+16,
+    GATE.h+16,
+    "#a06a3b"
   );
 
+  rectPixel(
+    GATE.x-4,
+    GATE.y-4,
+    GATE.w+8,
+    GATE.h+8,
+    "#3e291c"
+  );
+
+  rectPixel(
+    GATE.x,
+    GATE.y,
+    GATE.w,
+    GATE.h,
+    "#050505"
+  );
 
   /*
-    Stone blocks.
+    Metal bars.
   */
 
   for(
@@ -2829,35 +2272,24 @@ function drawGate(){
   ){
 
     rectPixel(
-      GATE.x-12+
-      (i%2)*22,
-      GATE.y-12+
-      Math.floor(i/2)*28,
-      18,
-      22,
-      i%2
-      ?"#6d4d31"
-      :"#795536"
+      GATE.x+3+i*5,
+      GATE.y+3,
+      3,
+      GATE.h-6,
+      "#666"
     );
 
+    rectPixel(
+      GATE.x+4+i*5,
+      GATE.y+3,
+      1,
+      GATE.h-6,
+      "#d0d0d0"
+    );
   }
 
-
   /*
-    Dark opening.
-  */
-
-  rectPixel(
-    GATE.x,
-    GATE.y,
-    GATE.w,
-    GATE.h,
-    "#080808"
-  );
-
-
-  /*
-    Metal bars.
+    Cross braces.
   */
 
   for(
@@ -2867,500 +2299,89 @@ function drawGate(){
   ){
 
     rectPixel(
-      GATE.x+3+i*6,
-      GATE.y+3,
-      4,
-      GATE.h-6,
-      "#777"
-    );
-
-    rectPixel(
-      GATE.x+4+i*6,
-      GATE.y+3,
-      2,
-      GATE.h-6,
-      "#c0c0c0"
-    );
-
-  }
-
-
-  /*
-    Horizontal metal bands.
-  */
-
-  for(
-    let i=0;
-    i<4;
-    i++
-  ){
-
-    rectPixel(
       GATE.x,
-      GATE.y+18+i*25,
+      GATE.y+15+i*27,
       GATE.w,
       5,
-      "#666"
+      "#888"
     );
-
   }
-
 
   /*
     Bolts.
   */
 
+  const bolts=[
+    [GATE.x-12,GATE.y-12],
+    [GATE.x+GATE.w+5,GATE.y-12],
+    [GATE.x-12,GATE.y+GATE.h+5],
+    [GATE.x+GATE.w+5,GATE.y+GATE.h+5]
+  ];
+
   for(
-    let yy of [
-      GATE.y+10,
-      GATE.y+GATE.h-18
-    ]
+    const [x,y] of bolts
   ){
 
     rectPixel(
-      GATE.x-5,
-      yy,
-      5,
-      5,
-      "#bbb"
+      x,y,
+      7,7,
+      "#aaa"
     );
 
     rectPixel(
-      GATE.x+GATE.w,
-      yy,
-      5,
-      5,
-      "#bbb"
+      x+2,y+2,
+      3,3,
+      "#eee"
     );
-
   }
-
 }
 
 
 /* =========================================================
-   BIG BOSS DRAW
+   HEART / COIN
 ========================================================= */
 
-function drawBigBoss(){
+function drawHeart(
+  x,y,full
+){
 
-  if(!bigBoss){
-    return;
-  }
+  const color=
+    full
+    ?"#e83e3e"
+    :"#3a3a3a";
 
-
-  const e=bigBoss;
-
-
-  if(
-    e.type==="defeatedBoss"
-  ){
-
-    const progress=
-      e.animation/e.maxAnimation;
-
-
-    ctx.save();
-
-    ctx.globalAlpha=
-      Math.max(
-        0,
-        progress
-      );
-
-
-    ctx.translate(
-      e.x,
-      e.y
-    );
-
-
-    ctx.scale(
-      .75+
-      progress*.25,
-      .75+
-      progress*.25
-    );
-
-
-    drawBossBody(
-      0,
-      0
-    );
-
-
-    ctx.restore();
-
-
-    /*
-      Falling debris.
-    */
-
-    for(
-      let i=0;
-      i<8;
-      i++
-    ){
-
-      const angle=
-        i*Math.PI/4+
-        performance.now()/700;
-
-
-      const dist=
-        (1-progress)*55;
-
-
-      rectPixel(
-        e.x+
-        Math.cos(angle)*dist,
-        e.y+
-        Math.sin(angle)*dist,
-        5,
-        5,
-        i%2
-        ?" #65b95b".trim()
-        :"#8d8d8d"
-      );
-
-    }
-
-
-    return;
-
-  }
-
-
-  drawBossBody(
-    e.x,
-    e.y
-  );
-
-
-  /*
-    Big Boss health bar.
-  */
-
-  const bw=220;
-  const bh=12;
-
-  const bx=
-    e.x-bw/2;
-
-  const by=
-    e.y-92;
-
-
-  rectPixel(
-    bx-4,
-    by-4,
-    bw+8,
-    bh+8,
-    "#111"
-  );
-
-
-  rectPixel(
-    bx,
-    by,
-    bw,
-    bh,
-    "#5b2020"
-  );
-
-
-  rectPixel(
-    bx,
-    by,
-    bw*
-    Math.max(
-      0,
-      e.hp/e.maxHp
-    ),
-    bh,
-    "#ef3e3e"
-  );
-
-
-  ctx.fillStyle="#fff";
-  ctx.font="12px monospace";
-  ctx.textAlign="center";
-
-
-  ctx.fillText(
-    "BIG BOSS",
-    e.x,
-    by-8
-  );
-
-
-  ctx.textAlign="left";
-
+  rectPixel(x+4,y,10,4,color);
+  rectPixel(x,y+4,18,10,color);
+  rectPixel(x+4,y+14,10,4,color);
+  rectPixel(x+8,y+18,2,2,color);
 }
 
 
-function drawBossBody(
-  x,
-  y
-){
-
-  /*
-    Shadow.
-  */
+function drawCoin(x,y){
 
   rectPixel(
-    x-44,
-    y+42,
-    88,
-    12,
-    "#111"
-  );
-
-
-  /*
-    Body.
-  */
-
-  rectPixel(
-    x-40,
-    y-30,
-    80,
-    78,
-    "#28652c"
-  );
-
-
-  /*
-    Arms.
-  */
-
-  rectPixel(
-    x-56,
-    y-23,
-    18,
-    40,
-    "#327b35"
+    x,y,
+    16,16,
+    "#f3c62e"
   );
 
   rectPixel(
-    x+38,
-    y-23,
-    18,
-    40,
-    "#327b35"
-  );
-
-
-  /*
-    Head.
-  */
-
-  rectPixel(
-    x-34,
-    y-55,
-    68,
-    55,
-    "#3c8f3d"
-  );
-
-
-  /*
-    Ears.
-  */
-
-  rectPixel(
-    x-45,
-    y-40,
-    12,
-    24,
-    "#2e7130"
+    x+4,y+2,
+    8,12,
+    "#ffe875"
   );
 
   rectPixel(
-    x+33,
-    y-40,
-    12,
-    24,
-    "#2e7130"
-  );
-
-
-  /*
-    Eyes.
-  */
-
-  rectPixel(
-    x-22,
-    y-38,
-    15,
-    8,
-    "#111"
+    x+2,y+3,
+    2,10,
+    "#b77b16"
   );
 
   rectPixel(
-    x+7,
-    y-38,
-    15,
-    8,
-    "#111"
+    x+12,y+3,
+    2,10,
+    "#b77b16"
   );
-
-
-  rectPixel(
-    x-18,
-    y-36,
-    5,
-    4,
-    "#e8d35c"
-  );
-
-  rectPixel(
-    x+10,
-    y-36,
-    5,
-    4,
-    "#e8d35c"
-  );
-
-
-  /*
-    Scar.
-  */
-
-  rectPixel(
-    x-7,
-    y-52,
-    5,
-    12,
-    "#641d1d"
-  );
-
-  rectPixel(
-    x-12,
-    y-42,
-    5,
-    12,
-    "#641d1d"
-  );
-
-  rectPixel(
-    x-17,
-    y-32,
-    5,
-    12,
-    "#641d1d"
-  );
-
-
-  /*
-    Mouth.
-  */
-
-  rectPixel(
-    x-18,
-    y-12,
-    36,
-    9,
-    "#132d13"
-  );
-
-  rectPixel(
-    x-12,
-    y-9,
-    7,
-    4,
-    "#eee"
-  );
-
-  rectPixel(
-    x+5,
-    y-9,
-    7,
-    4,
-    "#eee"
-  );
-
-
-  /*
-    Belt.
-  */
-
-  rectPixel(
-    x-38,
-    y+27,
-    76,
-    10,
-    "#39271a"
-  );
-
-  rectPixel(
-    x-8,
-    y+26,
-    16,
-    12,
-    "#d0a52b"
-  );
-
-
-  /*
-    Bat.
-  */
-
-  ctx.save();
-
-  ctx.translate(
-    x+35,
-    y+10
-  );
-
-
-  const swing=
-    Math.sin(
-      performance.now()/110
-    )*.12;
-
-
-  ctx.rotate(
-    -.65+swing
-  );
-
-
-  rectPixel(
-    0,
-    -5,
-    12,
-    75,
-    "#5a351d"
-  );
-
-  rectPixel(
-    3,
-    -5,
-    6,
-    75,
-    "#8a5129"
-  );
-
-
-  rectPixel(
-    -16,
-    -45,
-    42,
-    55,
-    "#4b2c1c"
-  );
-
-  rectPixel(
-    -20,
-    -38,
-    50,
-    40,
-    "#61391f"
-  );
-
-
-  ctx.restore();
-
 }
 
 
@@ -3376,20 +2397,17 @@ function drawSkeletonGoblin(e){
 
   rectPixel(
     e.x-10,
-    e.y-17,
-    20,
-    14,
-    "#eeeeee"
+    e.y-18,
+    20,15,
+    "#eee"
   );
 
   rectPixel(
     e.x-7,
-    e.y-21,
-    14,
-    5,
-    "#d6d6d6"
+    e.y-22,
+    14,5,
+    "#d5d5d5"
   );
-
 
   /*
     Eyes.
@@ -3398,19 +2416,16 @@ function drawSkeletonGoblin(e){
   rectPixel(
     e.x-7,
     e.y-13,
-    5,
-    5,
+    5,5,
     "#111"
   );
 
   rectPixel(
     e.x+2,
     e.y-13,
-    5,
-    5,
+    5,5,
     "#111"
   );
-
 
   /*
     Jaw.
@@ -3419,53 +2434,41 @@ function drawSkeletonGoblin(e){
   rectPixel(
     e.x-7,
     e.y-5,
-    14,
-    5,
+    14,5,
     "#ddd"
   );
 
-
   /*
-    Body.
+    Rib cage.
   */
 
   rectPixel(
-    e.x-9,
+    e.x-8,
     e.y,
-    18,
-    18,
-    "#cfcfcf"
+    16,18,
+    "#d5d5d5"
   );
-
-
-  /*
-    Ribs.
-  */
 
   rectPixel(
     e.x-7,
-    e.y+2,
-    14,
-    3,
+    e.y+3,
+    14,3,
     "#555"
   );
 
   rectPixel(
     e.x-7,
-    e.y+8,
-    14,
-    3,
+    e.y+9,
+    14,3,
     "#555"
   );
 
   rectPixel(
     e.x-7,
-    e.y+14,
-    14,
-    3,
+    e.y+15,
+    14,3,
     "#555"
   );
-
 
   /*
     Arms.
@@ -3474,19 +2477,16 @@ function drawSkeletonGoblin(e){
   rectPixel(
     e.x-18,
     e.y+2,
-    9,
-    4,
+    10,4,
     "#ddd"
   );
 
   rectPixel(
-    e.x+9,
+    e.x+8,
     e.y+2,
-    9,
-    4,
+    10,4,
     "#ddd"
   );
-
 
   /*
     Legs.
@@ -3495,19 +2495,16 @@ function drawSkeletonGoblin(e){
   rectPixel(
     e.x-7,
     e.y+18,
-    5,
-    12,
+    5,13,
     "#ddd"
   );
 
   rectPixel(
     e.x+2,
     e.y+18,
-    5,
-    12,
+    5,13,
     "#ddd"
   );
-
 }
 
 
@@ -3518,60 +2515,43 @@ function drawSkeletonOgre(e){
   */
 
   rectPixel(
-    e.x-20,
-    e.y-38,
-    40,
-    25,
-    "#eeeeee"
+    e.x-21,
+    e.y-40,
+    42,27,
+    "#eee"
   );
 
-
   rectPixel(
-    e.x-13,
-    e.y-31,
-    7,
-    6,
+    e.x-14,
+    e.y-32,
+    8,7,
     "#111"
   );
 
   rectPixel(
     e.x+6,
-    e.y-31,
-    7,
-    6,
+    e.y-32,
+    8,7,
     "#111"
   );
 
-
-  /*
-    Jaw.
-  */
-
   rectPixel(
-    e.x-10,
-    e.y-20,
-    20,
-    6,
-    "#ccc"
+    e.x-9,
+    e.y-21,
+    18,5,
+    "#333"
   );
 
-
   /*
-    Body.
+    Large rib cage.
   */
 
   rectPixel(
     e.x-25,
     e.y-12,
-    50,
-    35,
+    50,36,
     "#d2d2d2"
   );
-
-
-  /*
-    Ribs.
-  */
 
   for(
     let i=0;
@@ -3580,15 +2560,13 @@ function drawSkeletonOgre(e){
   ){
 
     rectPixel(
-      e.x-19,
-      e.y-7+i*7,
-      38,
-      3,
+      e.x-17,
+      e.y-8+i*8,
+      34,
+      4,
       "#555"
     );
-
   }
-
 
   /*
     Arms.
@@ -3596,1166 +2574,490 @@ function drawSkeletonOgre(e){
 
   rectPixel(
     e.x-34,
-    e.y-5,
-    10,
-    6,
+    e.y-15,
+    10,6,
     "#ddd"
   );
 
   rectPixel(
     e.x+24,
-    e.y-5,
-    10,
-    6,
+    e.y-15,
+    10,6,
     "#ddd"
   );
-
 
   /*
     Legs.
   */
 
   rectPixel(
-    e.x-17,
-    e.y+22,
-    9,
-    18,
+    e.x-18,
+    e.y+20,
+    7,15,
     "#ddd"
   );
 
   rectPixel(
-    e.x+8,
-    e.y+22,
-    9,
-    18,
+    e.x+11,
+    e.y+20,
+    7,15,
     "#ddd"
   );
 
-
   /*
-    Small pixel wand/stick.
+    Small pixel wand.
   */
 
   ctx.save();
 
   ctx.translate(
-    e.x+28,
+    e.x+27,
+    e.y+5
+  );
+
+  ctx.rotate(-.45);
+
+  rectPixel(
+    0,-24,
+    5,38,
+    "#684426"
+  );
+
+  rectPixel(
+    1,-27,
+    3,7,
+    "#a87943"
+  );
+
+  rectPixel(
+    -2,-31,
+    9,5,
+    "#9a78ff"
+  );
+
+  rectPixel(
+    0,-35,
+    5,5,
+    "#c3a6ff"
+  );
+
+  ctx.restore();
+}
+
+
+/* =========================================================
+   BIG BOSS DRAWING
+========================================================= */
+
+function drawBigBoss(){
+
+  if(!bigBoss)return;
+
+  const e=bigBoss;
+
+  if(
+    e.type==="defeatedBoss"
+  ){
+
+    const progress=
+      Math.max(
+        0,
+        e.animation/e.maxAnimation
+      );
+
+    ctx.save();
+
+    ctx.globalAlpha=
+      progress;
+
+    rectPixel(
+      e.x-40,
+      e.y-30,
+      80,75,
+      "#28652c"
+    );
+
+    rectPixel(
+      e.x-35,
+      e.y-55,
+      70,55,
+      "#3c8f3d"
+    );
+
+    rectPixel(
+      e.x-22,
+      e.y-38,
+      15,8,
+      "#111"
+    );
+
+    rectPixel(
+      e.x+7,
+      e.y-38,
+      15,8,
+      "#111"
+    );
+
+    rectPixel(
+      e.x-18,
+      e.y-36,
+      5,4,
+      "#e8d35c"
+    );
+
+    rectPixel(
+      e.x+10,
+      e.y-36,
+      5,4,
+      "#e8d35c"
+    );
+
+    /*
+      Disintegration pixels.
+    */
+
+    for(
+      let i=0;
+      i<20;
+      i++
+    ){
+
+      const a=
+        i*Math.PI*2/20+
+        performance.now()/500;
+
+      const r=
+        35+
+        (1-progress)*45;
+
+      rectPixel(
+        e.x+
+          Math.cos(a)*r,
+        e.y+
+          Math.sin(a)*r,
+        5,5,
+        i%2
+        ?"#3c8f3d"
+        :"#8edb77"
+      );
+    }
+
+    ctx.restore();
+
+    return;
+  }
+
+  /*
+    Normal boss.
+  */
+
+  rectPixel(
+    e.x-42,
+    e.y+40,
+    84,12,
+    "#151515"
+  );
+
+  rectPixel(
+    e.x-40,
+    e.y-30,
+    80,78,
+    "#28652c"
+  );
+
+  rectPixel(
+    e.x-55,
+    e.y-23,
+    18,38,
+    "#327b35"
+  );
+
+  rectPixel(
+    e.x+37,
+    e.y-23,
+    18,38,
+    "#327b35"
+  );
+
+  rectPixel(
+    e.x-34,
+    e.y-55,
+    68,55,
+    "#3c8f3d"
+  );
+
+  rectPixel(
+    e.x-22,
+    e.y-38,
+    15,8,
+    "#111"
+  );
+
+  rectPixel(
+    e.x+7,
+    e.y-38,
+    15,8,
+    "#111"
+  );
+
+  rectPixel(
+    e.x-18,
+    e.y-36,
+    5,4,
+    "#e8d35c"
+  );
+
+  rectPixel(
+    e.x+10,
+    e.y-36,
+    5,4,
+    "#e8d35c"
+  );
+
+  rectPixel(
+    e.x-18,
+    e.y-12,
+    36,9,
+    "#132d13"
+  );
+
+  rectPixel(
+    e.x-12,
+    e.y-9,
+    7,4,
+    "#eee"
+  );
+
+  rectPixel(
+    e.x+5,
+    e.y-9,
+    7,4,
+    "#eee"
+  );
+
+  /*
+    Bat weapon.
+  */
+
+  ctx.save();
+
+  ctx.translate(
+    e.x+35,
     e.y+10
   );
 
   ctx.rotate(
     -.65+
     Math.sin(
-      performance.now()/250
+      performance.now()/110
     )*.12
   );
 
-
   rectPixel(
-    0,
-    -38,
-    5,
-    55,
-    "#714728"
+    0,-5,
+    12,75,
+    "#5a351d"
   );
 
-
   rectPixel(
-    -5,
-    -43,
-    15,
-    8,
-    "#8b6238"
+    3,-5,
+    6,75,
+    "#8a5129"
   );
 
-
   rectPixel(
-    -2,
-    -49,
-    9,
-    7,
-    "#b4e8ff"
+    -16,-45,
+    42,55,
+    "#4b2c1c"
   );
 
-
   rectPixel(
-    1,
-    -52,
-    4,
-    4,
-    "#ffffff"
+    -20,-38,
+    50,40,
+    "#61391f"
   );
-
 
   ctx.restore();
 
+  /*
+    Big boss health bar.
+  */
+
+  const bw=220;
+  const bh=12;
+
+  const bx=e.x-bw/2;
+  const by=e.y-80;
+
+  rectPixel(
+    bx-3,
+    by-3,
+    bw+6,
+    bh+6,
+    "#111"
+  );
+
+  rectPixel(
+    bx,
+    by,
+    bw,
+    bh,
+    "#681f25"
+  );
+
+  rectPixel(
+    bx,
+    by,
+    bw*
+      Math.max(
+        0,
+        e.hp/e.maxHp
+      ),
+    bh,
+    "#e33b3b"
+  );
+
+  ctx.fillStyle="#fff";
+  ctx.font="12px monospace";
+  ctx.textAlign="center";
+
+  ctx.fillText(
+    "BIG BOSS",
+    e.x,
+    by-8
+  );
+
+  ctx.textAlign="left";
 }
 
 
 /* =========================================================
-   BAT DRAW
+   BAT DRAWING
 ========================================================= */
 
 function drawBatPickup(){
 
-  if(
-    !bat.active||
-    bat.collected
-  ){
-
-    return;
-
-  }
-
+  if(!bat.active)return;
 
   bat.pulse+=.08;
 
-
-  const pulse=
+  const bob=
     Math.sin(
       bat.pulse
     )*3;
-
 
   ctx.save();
 
   ctx.translate(
     bat.x,
-    bat.y+pulse
+    bat.y+bob
   );
 
+  /*
+    Glow.
+  */
+
+  ctx.globalAlpha=.25;
+
+  rectPixel(
+    -27,-27,
+    54,54,
+    "#9a78ff"
+  );
+
+  ctx.globalAlpha=1;
 
   /*
-    Glow blocks.
+    Handle.
   */
 
   rectPixel(
-    -28,
-    -28,
-    56,
-    56,
-    "#173a5a"
-  );
-
-
-  rectPixel(
-    -22,
-    -22,
-    44,
-    44,
-    "#235a83"
-  );
-
-
-  /*
-    Bat handle.
-  */
-
-  ctx.rotate(-.55);
-
-
-  rectPixel(
+    -3,
     -4,
-    -4,
-    9,
-    65,
-    "#6f4527"
+    6,
+    48,
+    "#6b3f24"
   );
 
   rectPixel(
     -1,
     -4,
-    4,
-    65,
-    "#a96a35"
+    3,
+    48,
+    "#a76a36"
   );
 
-
   /*
-    Spiky head.
+    Spiky bat head.
   */
 
   rectPixel(
-    -18,
-    -34,
-    38,
-    32,
-    "#4c2b1d"
-  );
-
-  rectPixel(
+    -17,
     -22,
-    -30,
-    46,
-    23,
-    "#66351f"
+    34,
+    22,
+    "#3c2520"
   );
 
-
-  /*
-    Spikes.
-  */
-
   rectPixel(
-    -25,
-    -37,
-    8,
+    -21,
+    -17,
+    42,
     12,
-    "#c9c9c9"
+    "#573326"
   );
 
   rectPixel(
-    -8,
-    -42,
-    8,
-    15,
-    "#dcdcdc"
-  );
-
-  rectPixel(
-    9,
-    -39,
-    8,
-    13,
-    "#c9c9c9"
-  );
-
-  rectPixel(
-    20,
-    -34,
-    8,
-    11,
-    "#dcdcdc"
-  );
-
-
-  ctx.restore();
-
-}
-
-
-/* =========================================================
-   BAT SWING
-========================================================= */
-
-function drawBatSwing(){
-
-  if(
-    !batAbility||
-    batSwing<=0
-  ){
-
-    return;
-
-  }
-
-
-  const progress=
-    1-
-    batSwing/.60;
-
-
-  const angle=
-    -1.8+
-    progress*3.6;
-
-
-  ctx.save();
-
-  ctx.translate(
-    p.x,
-    p.y
-  );
-
-  ctx.rotate(angle);
-
-
-  /*
-    Large visible spiky bat.
-  */
-
-  rectPixel(
-    5,
-    -5,
-    72,
-    10,
-    "#63391f"
-  );
-
-  rectPixel(
-    20,
-    -8,
-    45,
-    16,
-    "#7d4525"
-  );
-
-
-  rectPixel(
-    55,
-    -14,
-    32,
-    28,
-    "#4b2b1d"
-  );
-
-
-  rectPixel(
-    61,
-    -20,
-    8,
-    10,
-    "#ddd"
-  );
-
-  rectPixel(
-    73,
-    -22,
-    8,
-    10,
-    "#ddd"
-  );
-
-  rectPixel(
-    82,
+    -24,
     -13,
-    8,
-    10,
-    "#ddd"
+    5,10,
+    "#b7b7b7"
   );
 
   rectPixel(
-    73,
-    12,
-    8,
-    10,
-    "#ddd"
+    19,
+    -13,
+    5,10,
+    "#b7b7b7"
   );
 
   rectPixel(
-    61,
-    10,
-    8,
-    10,
-    "#ddd"
-  );
-
-
-  ctx.restore();
-
-}
-
-
-/* =========================================================
-   HEART
-========================================================= */
-
-function drawHeart(
-  x,
-  y,
-  full
-){
-
-  const color=
-    full
-    ?"#e83e3e"
-    :"#3a3a3a";
-
-
-  rectPixel(
-    x+4,
-    y,
-    10,
-    4,
-    color
+    -13,
+    -27,
+    7,7,
+    "#b7b7b7"
   );
 
   rectPixel(
-    x,
-    y+4,
-    18,
-    10,
-    color
+    6,
+    -27,
+    7,7,
+    "#b7b7b7"
   );
 
   rectPixel(
-    x+4,
-    y+14,
-    10,
-    4,
-    color
+    -5,
+    -30,
+    10,5,
+    "#d8d8d8"
   );
 
   rectPixel(
-    x+8,
-    y+18,
-    2,
-    2,
-    color
-  );
-
-}
-
-
-/* =========================================================
-   COIN
-========================================================= */
-
-function drawCoin(
-  x,
-  y
-){
-
-  rectPixel(
-    x,
-    y,
-    16,
-    16,
-    "#f3c62e"
-  );
-
-  rectPixel(
-    x+4,
-    y+2,
-    8,
-    12,
-    "#ffe875"
-  );
-
-  rectPixel(
-    x+2,
-    y+3,
-    2,
-    10,
-    "#b77b16"
-  );
-
-  rectPixel(
-    x+12,
-    y+3,
-    2,
-    10,
-    "#b77b16"
-  );
-
-}
-
-
-/* =========================================================
-   LOW HEALTH
-========================================================= */
-
-function drawLowHealthOverlay(){
-
-  if(
-    hearts!==1||
-    gameOver
-  ){
-
-    return;
-
-  }
-
-
-  const g=
-    ctx.createRadialGradient(
-      W/2,
-      H/2,
-      170,
-      W/2,
-      H/2,
-      650
-    );
-
-
-  g.addColorStop(
-    0,
-    "rgba(255,0,0,0)"
-  );
-
-  g.addColorStop(
-    .65,
-    "rgba(210,0,0,.08)"
-  );
-
-  g.addColorStop(
-    1,
-    "rgba(210,0,0,.55)"
-  );
-
-
-  ctx.save();
-
-  ctx.fillStyle=g;
-
-  ctx.fillRect(
-    0,
-    0,
-    W,
-    H
+    -12,
+    -9,
+    24,4,
+    "#8d5830"
   );
 
   ctx.restore();
-
 }
 
 
 /* =========================================================
-   SHIELD DRAW
+   BOMB DRAWING
 ========================================================= */
 
-function drawShield(){
-
-  if(
-    p.shieldTimer<=0
-  ){
-
-    return;
-
-  }
-
-
-  const pulse=
-    Math.sin(
-      performance.now()/90
-    );
-
-
-  const size=
-    31+
-    pulse*2;
-
-
-  ctx.save();
-
-  ctx.globalAlpha=.35;
-
-
-  /*
-    Pixelated blue shield.
-  */
-
-  rectPixel(
-    p.x-size,
-    p.y-size,
-    size*2,
-    5,
-    "#42aaff"
-  );
-
-  rectPixel(
-    p.x-size,
-    p.y+size-5,
-    size*2,
-    5,
-    "#42aaff"
-  );
-
-  rectPixel(
-    p.x-size,
-    p.y-size,
-    5,
-    size*2,
-    "#42aaff"
-  );
-
-  rectPixel(
-    p.x+size-5,
-    p.y-size,
-    5,
-    size*2,
-    "#42aaff"
-  );
-
-
-  rectPixel(
-    p.x-size+7,
-    p.y-size+5,
-    4,
-    4,
-    "#8bd4ff"
-  );
-
-  rectPixel(
-    p.x+size-11,
-    p.y+size-9,
-    4,
-    4,
-    "#8bd4ff"
-  );
-
-
-  ctx.globalAlpha=.15;
-
-  ctx.fillStyle="#168cff";
-
-  ctx.fillRect(
-    p.x-size+5,
-    p.y-size+5,
-    size*2-10,
-    size*2-10
-  );
-
-
-  ctx.restore();
-
-}
-
-
-/* =========================================================
-   DRAW ENEMIES
-========================================================= */
-
-function drawEnemies(){
-
-  for(
-    const e of enemies
-  ){
-
-    if(
-      e.type==="goblin"
-    ){
-
-      rectPixel(
-        e.x-12,
-        e.y-7,
-        24,
-        22,
-        "#3c8f3d"
-      );
-
-      rectPixel(
-        e.x-17,
-        e.y-5,
-        6,
-        12,
-        "#2e7130"
-      );
-
-      rectPixel(
-        e.x+11,
-        e.y-5,
-        6,
-        12,
-        "#2e7130"
-      );
-
-      rectPixel(
-        e.x-8,
-        e.y-12,
-        16,
-        5,
-        "#4ba747"
-      );
-
-      rectPixel(
-        e.x-8,
-        e.y-6,
-        6,
-        3,
-        "#111"
-      );
-
-      rectPixel(
-        e.x+2,
-        e.y-6,
-        6,
-        3,
-        "#111"
-      );
-
-      rectPixel(
-        e.x-7,
-        e.y-2,
-        4,
-        4,
-        "#111"
-      );
-
-      rectPixel(
-        e.x+3,
-        e.y-2,
-        4,
-        4,
-        "#111"
-      );
-
-    }
-
-
-    else if(
-      e.type==="ogre"
-    ){
-
-      rectPixel(
-        e.x-25,
-        e.y-25,
-        50,
-        48,
-        "#397d36"
-      );
-
-      rectPixel(
-        e.x-31,
-        e.y-18,
-        7,
-        17,
-        "#2b622c"
-      );
-
-      rectPixel(
-        e.x+24,
-        e.y-18,
-        7,
-        17,
-        "#2b622c"
-      );
-
-      rectPixel(
-        e.x-16,
-        e.y-16,
-        11,
-        5,
-        "#111"
-      );
-
-      rectPixel(
-        e.x+5,
-        e.y-16,
-        11,
-        5,
-        "#111"
-      );
-
-      rectPixel(
-        e.x-13,
-        e.y-10,
-        8,
-        8,
-        "#111"
-      );
-
-      rectPixel(
-        e.x+5,
-        e.y-10,
-        8,
-        8,
-        "#111"
-      );
-
-      rectPixel(
-        e.x-12,
-        e.y+8,
-        24,
-        5,
-        "#132d13"
-      );
-
-      rectPixel(
-        e.x-8,
-        e.y+13,
-        16,
-        3,
-        "#132d13"
-      );
-
-
-      ctx.save();
-
-      ctx.translate(
-        e.x,
-        e.y
-      );
-
-      ctx.rotate(
-        -.65+
-        Math.sin(
-          performance.now()/120
-        )*.3
-      );
-
-      rectPixel(
-        16,
-        -30,
-        7,
-        44,
-        "#714728"
-      );
-
-      rectPixel(
-        11,
-        -36,
-        17,
-        13,
-        "#8d5b32"
-      );
-
-      ctx.restore();
-
-    }
-
-
-    else if(
-      e.type==="skeletonGoblin"
-    ){
-
-      drawSkeletonGoblin(e);
-
-    }
-
-
-    else if(
-      e.type==="skeletonOgre"
-    ){
-
-      drawSkeletonOgre(e);
-
-    }
-
-
-    /*
-      Burn effect.
-    */
-
-    if(
-      e.burn>0
-    ){
-
-      rectPixel(
-        e.x-e.r-3,
-        e.y+e.r-4,
-        5,
-        7,
-        "#ff8c22"
-      );
-
-      rectPixel(
-        e.x+e.r-2,
-        e.y+e.r-8,
-        4,
-        7,
-        "#ffd45a"
-      );
-
-    }
-
-
-    /*
-      Health bar.
-    */
-
-    const bw=
-      e.type==="ogre"||
-      e.type==="skeletonOgre"
-      ?70
-      :40;
-
-
-    const bh=6;
-
-
-    const bx=
-      e.x-bw/2;
-
-    const by=
-      e.y-e.r-15;
-
-
-    rectPixel(
-      bx-2,
-      by-2,
-      bw+4,
-      bh+4,
-      "#111"
-    );
-
-
-    rectPixel(
-      bx,
-      by,
-      bw,
-      bh,
-      "#542b2b"
-    );
-
-
-    rectPixel(
-      bx,
-      by,
-      bw*
-      Math.max(
-        0,
-        e.hp/e.maxHp
-      ),
-      bh,
-      e.type.startsWith("skeleton")
-      ?"#eeeeee"
-      :"#55c84a"
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   DRAW
-========================================================= */
-
-function draw(){
-
-  ctx.clearRect(
-    0,
-    0,
-    W,
-    H
-  );
-
-
-  /*
-    Arena.
-  */
-
-  ctx.fillStyle="#303030";
-
-  ctx.fillRect(
-    ARENA.left,
-    ARENA.top,
-    ARENA.right-ARENA.left,
-    ARENA.bottom-ARENA.top
-  );
-
-
-  ctx.strokeStyle="#444";
-  ctx.lineWidth=6;
-
-  ctx.strokeRect(
-    ARENA.left,
-    ARENA.top,
-    ARENA.right-ARENA.left,
-    ARENA.bottom-ARENA.top
-  );
-
-
-  /*
-    Static-looking floor pixels.
-  */
-
-  for(
-    let i=0;
-    i<85;
-    i++
-  ){
-
-    const x=
-      ARENA.left+
-      15+
-      ((i*73)%(
-        ARENA.right-
-        ARENA.left-
-        30
-      ));
-
-    const y=
-      65+
-      ((i*47)%470);
-
-
-    rectPixel(
-      x,
-      y,
-      3,
-      3,
-      i%2
-      ?"#353535"
-      :"#3b3b3b"
-    );
-
-  }
-
-
-  /*
-    Information panel.
-  */
-
-  ctx.fillStyle="#202020";
-
-  ctx.fillRect(
-    8,
-    75,
-    135,
-    130
-  );
-
-
-  ctx.strokeStyle="#444";
-  ctx.lineWidth=2;
-
-  ctx.strokeRect(
-    8,
-    75,
-    135,
-    130
-  );
-
-
-  ctx.font="14px monospace";
-
-
-  ctx.fillStyle="#ffcf4d";
-
-  ctx.fillText(
-    "NEXT UPGRADE",
-    17,
-    98
-  );
-
-
-  ctx.fillStyle="#fff";
-
-  if(
-    bossDefeated
-  ){
-
-    ctx.fillText(
-      "SKELETON",
-      17,
-      118
-    );
-
-    ctx.fillText(
-      "LV "+
-      skeletonLevel,
-      17,
-      137
-    );
-
-    ctx.fillStyle="#8edfff";
-
-    ctx.fillText(
-      Math.ceil(
-        skeletonUpgradeTimer
-      )+"s",
-      17,
-      156
-    );
-
-  }else{
-
-    ctx.fillText(
-      Math.max(
-        0,
-        Math.ceil(
-          nextUpgrade-elapsed
-        )
-      )+"s",
-      17,
-      118
-    );
-
-    ctx.fillStyle="#7ee879";
-
-    ctx.fillText(
-      "GOBLIN LV",
-      17,
-      145
-    );
-
-    ctx.fillStyle="#fff";
-
-    ctx.fillText(
-      String(
-        goblinBuffLevel
-      ),
-      17,
-      165
-    );
-
-  }
-
-
-  /*
-    Big Boss timer.
-  */
-
-  ctx.fillStyle="#ffcf4d";
-
-  ctx.fillText(
-    "BIG BOSS",
-    82,
-    145
-  );
-
-
-  if(
-    !bigBoss&&
-    !bossDefeated&&
-    bossCountdown<=0
-  ){
-
-    ctx.fillStyle="#fff";
-
-    ctx.fillText(
-      Math.max(
-        0,
-        Math.ceil(
-          nextBigBoss-elapsed
-        )
-      )+"s",
-      82,
-      165
-    );
-
-  }else if(
-    bigBoss&&
-    bigBoss.type==="bigboss"
-  ){
-
-    ctx.fillStyle="#ff4444";
-
-    ctx.fillText(
-      "ACTIVE",
-      82,
-      165
-    );
-
-  }else if(bossDefeated){
-
-    ctx.fillStyle="#8edfff";
-
-    ctx.fillText(
-      "DEFEATED",
-      82,
-      165
-    );
-
-  }
-
-
-  /*
-    Gate.
-  */
-
-  drawGate();
-
-
-  /*
-    Enemies.
-  */
-
-  drawEnemies();
-
-
-  /*
-    Big Boss.
-  */
-
-  drawBigBoss();
-
-
-  /*
-    Bomb pickups.
-  */
+function drawBombs(){
 
   for(
     const bp of bombPickups
@@ -4764,87 +3066,63 @@ function draw(){
     rectPixel(
       bp.x-9,
       bp.y-9,
-      18,
-      18,
+      18,18,
       "#111"
     );
 
     rectPixel(
-      bp.x-7,
-      bp.y-7,
-      14,
-      14,
+      bp.x-6,
+      bp.y-6,
+      12,13,
       "#444"
     );
 
     rectPixel(
-      bp.x-4,
-      bp.y-5,
-      8,
-      10,
-      "#555"
-    );
-
-    rectPixel(
-      bp.x-2,
-      bp.y-11,
-      5,
-      5,
-      "#888"
+      bp.x-3,
+      bp.y-10,
+      6,4,
+      "#777"
     );
 
     rectPixel(
       bp.x+3,
       bp.y-13,
-      7,
-      3,
+      5,3,
       "#ddd"
     );
-
   }
-
-
-  /*
-    Bombs.
-  */
 
   for(
     const b of bombs
   ){
 
-    if(
-      !b.exploded
-    ){
+    if(!b.exploded){
 
       rectPixel(
         b.x-9,
         b.y-8,
-        18,
-        16,
+        18,16,
         "#111"
       );
 
       rectPixel(
-        b.x-7,
-        b.y-7,
-        14,
-        14,
+        b.x-6,
+        b.y-6,
+        12,13,
         "#444"
       );
 
       rectPixel(
-        b.x-2,
+        b.x-3,
         b.y-11,
-        5,
-        5,
+        6,4,
         "#777"
       );
 
       rectPixel(
         b.x+3,
         b.y-13,
-        7,
-        3,
+        5,3,
         "#ddd"
       );
 
@@ -4854,7 +3132,6 @@ function draw(){
         b.disintegrate/
         BOMB_DISINTEGRATE_TIME;
 
-
       ctx.save();
 
       ctx.globalAlpha=
@@ -4863,13 +3140,11 @@ function draw(){
           progress
         );
 
-
       const size=
-        7+
+        8+
         Math.round(
           progress*6
         );
-
 
       rectPixel(
         b.x-size,
@@ -4893,13 +3168,557 @@ function draw(){
         "#555"
       );
 
-
       ctx.restore();
+    }
+  }
+}
+
+
+/* =========================================================
+   PLAYER DRAWING
+========================================================= */
+
+function drawPlayer(){
+
+  const a=
+    Math.atan2(
+      mouse.y-p.y,
+      mouse.x-p.x
+    );
+
+  rectPixel(
+    p.x-12,
+    p.y-12,
+    24,24,
+    "#b47b4e"
+  );
+
+  rectPixel(
+    p.x-16,
+    p.y-8,
+    4,10,
+    "#6f4933"
+  );
+
+  rectPixel(
+    p.x+12,
+    p.y-8,
+    4,10,
+    "#6f4933"
+  );
+
+  rectPixel(
+    p.x-7,
+    p.y-5,
+    5,5,
+    "#252525"
+  );
+
+  rectPixel(
+    p.x+3,
+    p.y-5,
+    5,5,
+    "#252525"
+  );
+
+  rectPixel(
+    p.x-5,
+    p.y+7,
+    10,3,
+    "#613b2c"
+  );
+
+  ctx.save();
+
+  ctx.translate(
+    p.x,
+    p.y
+  );
+
+  ctx.rotate(a);
+
+  rectPixel(
+    9,-3,
+    22,6,
+    "#7d4b28"
+  );
+
+  ctx.restore();
+
+  /*
+    Bat swing.
+  */
+
+  if(
+    batSwing>0
+  ){
+
+    const progress=
+      1-
+      batSwing/.55;
+
+    ctx.save();
+
+    ctx.translate(
+      p.x,
+      p.y
+    );
+
+    ctx.rotate(
+      -1.4+
+      progress*2.8
+    );
+
+    rectPixel(
+      10,-4,
+      48,8,
+      "#573326"
+    );
+
+    rectPixel(
+      45,-12,
+      20,24,
+      "#3c2520"
+    );
+
+    rectPixel(
+      42,-18,
+      7,7,
+      "#ddd"
+    );
+
+    rectPixel(
+      58,-18,
+      7,7,
+      "#ddd"
+    );
+
+    ctx.restore();
+  }
+}
+
+
+/* =========================================================
+   SHIELD DRAW
+========================================================= */
+
+function drawPlayerShield(){
+
+  if(
+    p.shieldTimer<=0
+  ){
+    return;
+  }
+
+  const alpha=
+    .25+
+    Math.sin(
+      performance.now()/90
+    )*.08;
+
+  ctx.save();
+
+  ctx.globalAlpha=alpha;
+
+  rectPixel(
+    p.x-28,
+    p.y-25,
+    56,4,
+    "#49a9ff"
+  );
+
+  rectPixel(
+    p.x-30,
+    p.y-19,
+    4,38,
+    "#49a9ff"
+  );
+
+  rectPixel(
+    p.x+26,
+    p.y-19,
+    4,38,
+    "#49a9ff"
+  );
+
+  rectPixel(
+    p.x-28,
+    p.y+21,
+    56,4,
+    "#49a9ff"
+  );
+
+  ctx.restore();
+}
+
+
+/* =========================================================
+   DRAW ENEMIES
+========================================================= */
+
+function drawEnemies(){
+
+  for(
+    const e of enemies
+  ){
+
+    if(
+      e.type==="goblin"
+    ){
+
+      rectPixel(
+        e.x-12,
+        e.y-7,
+        24,22,
+        "#3c8f3d"
+      );
+
+      rectPixel(
+        e.x-17,
+        e.y-5,
+        6,12,
+        "#2e7130"
+      );
+
+      rectPixel(
+        e.x+11,
+        e.y-5,
+        6,12,
+        "#2e7130"
+      );
+
+      rectPixel(
+        e.x-8,
+        e.y-12,
+        16,5,
+        "#4ba747"
+      );
+
+      rectPixel(
+        e.x-8,
+        e.y-6,
+        6,3,
+        "#111"
+      );
+
+      rectPixel(
+        e.x+2,
+        e.y-6,
+        6,3,
+        "#111"
+      );
+
+    }else if(
+      e.type==="ogre"
+    ){
+
+      rectPixel(
+        e.x-25,
+        e.y-25,
+        50,48,
+        "#397d36"
+      );
+
+      rectPixel(
+        e.x-31,
+        e.y-18,
+        7,17,
+        "#2b622c"
+      );
+
+      rectPixel(
+        e.x+24,
+        e.y-18,
+        7,17,
+        "#2b622c"
+      );
+
+      rectPixel(
+        e.x-16,
+        e.y-16,
+        11,5,
+        "#111"
+      );
+
+      rectPixel(
+        e.x+5,
+        e.y-16,
+        11,5,
+        "#111"
+      );
+
+      /*
+        Mini boss bat.
+      */
+
+      rectPixel(
+        e.x+22,
+        e.y-22,
+        7,42,
+        "#714728"
+      );
+
+      rectPixel(
+        e.x+16,
+        e.y-28,
+        18,13,
+        "#8d5b32"
+      );
+
+    }else if(
+      e.type==="skeletonGoblin"
+    ){
+
+      drawSkeletonGoblin(e);
+
+    }else if(
+      e.type==="skeletonOgre"
+    ){
+
+      drawSkeletonOgre(e);
 
     }
 
+    if(e.burn>0){
+
+      rectPixel(
+        e.x-e.r-3,
+        e.y+e.r-4,
+        5,7,
+        "#ff8c22"
+      );
+
+      rectPixel(
+        e.x+e.r-2,
+        e.y+e.r-8,
+        4,7,
+        "#ffd45a"
+      );
+    }
+
+    const bw=
+      (
+        e.type==="ogre"||
+        e.type==="skeletonOgre"
+      )
+      ?64
+      :34;
+
+    const bh=6;
+
+    const bx=
+      e.x-bw/2;
+
+    const by=
+      e.y-e.r-15;
+
+    rectPixel(
+      bx-2,
+      by-2,
+      bw+4,
+      bh+4,
+      "#111"
+    );
+
+    rectPixel(
+      bx,
+      by,
+      bw,
+      bh,
+      "#542b2b"
+    );
+
+    rectPixel(
+      bx,
+      by,
+      bw*
+      Math.max(
+        0,
+        e.hp/e.maxHp
+      ),
+      bh,
+      e.type.startsWith("skeleton")
+      ?"#eeeeee"
+      :"#55c84a"
+    );
+  }
+}
+
+
+/* =========================================================
+   HUD / DRAW
+========================================================= */
+
+function draw(){
+
+  ctx.clearRect(
+    0,0,W,H
+  );
+
+  /*
+    Background.
+  */
+
+  ctx.fillStyle="#252525";
+
+  ctx.fillRect(
+    0,0,W,H
+  );
+
+  /*
+    Arena.
+  */
+
+  ctx.fillStyle="#303030";
+
+  ctx.fillRect(
+    ARENA.left,
+    ARENA.top,
+    ARENA.right-ARENA.left,
+    ARENA.bottom-ARENA.top
+  );
+
+  ctx.strokeStyle="#444";
+  ctx.lineWidth=6;
+
+  ctx.strokeRect(
+    ARENA.left,
+    ARENA.top,
+    ARENA.right-ARENA.left,
+    ARENA.bottom-ARENA.top
+  );
+
+  /*
+    Static floor pattern.
+  */
+
+  for(
+    let i=0;
+    i<85;
+    i++
+  ){
+
+    const x=
+      ARENA.left+
+      15+
+      (i*83)%
+      (
+        ARENA.right-
+        ARENA.left-
+        30
+      );
+
+    const y=
+      60+
+      (i*47)%490;
+
+    rectPixel(
+      x,y,
+      3,3,
+      i%2
+      ?"#353535"
+      :"#3b3b3b"
+    );
   }
 
+  /*
+    Info panel.
+  */
+
+  ctx.fillStyle="#202020";
+
+  ctx.fillRect(
+    8,75,
+    135,145
+  );
+
+  ctx.strokeStyle="#444";
+  ctx.lineWidth=2;
+
+  ctx.strokeRect(
+    8,75,
+    135,145
+  );
+
+  ctx.font="14px monospace";
+
+  ctx.fillStyle="#ffcf4d";
+
+  ctx.fillText(
+    "NEXT UPGRADE",
+    17,98
+  );
+
+  ctx.fillStyle="#fff";
+
+  ctx.fillText(
+    bossDefeated
+    ?"--"
+    :Math.max(
+      0,
+      Math.ceil(
+        nextUpgrade-elapsed
+      )
+    )+"s",
+    17,118
+  );
+
+  ctx.fillStyle="#7ee879";
+
+  ctx.fillText(
+    skeletonMode
+    ?"SKELETON LV"
+    :"GOBLIN LV",
+    17,145
+  );
+
+  ctx.fillStyle="#fff";
+
+  ctx.fillText(
+    String(
+      skeletonMode
+      ?skeletonLevel
+      :goblinBuffLevel
+    ),
+    17,165
+  );
+
+  ctx.fillStyle="#ffcf4d";
+
+  ctx.fillText(
+    bossDefeated
+    ?"BOSS DEFEATED"
+    :"BIG BOSS",
+    17,190
+  );
+
+  if(
+    !bossDefeated&&
+    !bigBoss
+  ){
+
+    ctx.fillStyle="#fff";
+
+    ctx.fillText(
+      Math.max(
+        0,
+        Math.ceil(
+          nextBigBoss-elapsed
+        )
+      )+"s",
+      17,207
+    );
+  }
+
+  /*
+    World.
+  */
+
+  drawGate();
+  drawEnemies();
+  drawBigBoss();
+  drawBatPickup();
+  drawBombs();
 
   /*
     Fireballs.
@@ -4912,29 +3731,31 @@ function draw(){
     rectPixel(
       b.x-7,
       b.y-7,
-      14,
-      14,
+      14,14,
+      "#9d3c12"
+    );
+
+    rectPixel(
+      b.x-5,
+      b.y-9,
+      10,18,
       "#d85b18"
     );
 
     rectPixel(
       b.x-3,
-      b.y-9,
-      6,
-      18,
+      b.y-8,
+      6,16,
       "#ff9b25"
     );
 
     rectPixel(
       b.x-2,
-      b.y-5,
-      4,
-      8,
+      b.y-4,
+      4,8,
       "#ffe27a"
     );
-
   }
-
 
   /*
     Particles.
@@ -4950,140 +3771,30 @@ function draw(){
         s.life/22
       );
 
-
     rectPixel(
       s.x,
       s.y,
-      5,
-      5,
+      5,5,
       "#ff9c29"
     );
 
-
     ctx.globalAlpha=1;
-
   }
 
+  drawPlayer();
+  drawPlayerShield();
 
   /*
-    Player.
-  */
-
-  const a=
-    Math.atan2(
-      mouse.y-p.y,
-      mouse.x-p.x
-    );
-
-
-  rectPixel(
-    p.x-12,
-    p.y-12,
-    24,
-    24,
-    "#b47b4e"
-  );
-
-
-  rectPixel(
-    p.x-16,
-    p.y-8,
-    4,
-    10,
-    "#6f4933"
-  );
-
-
-  rectPixel(
-    p.x+12,
-    p.y-8,
-    4,
-    10,
-    "#6f4933"
-  );
-
-
-  rectPixel(
-    p.x-7,
-    p.y-5,
-    5,
-    5,
-    "#252525"
-  );
-
-  rectPixel(
-    p.x+3,
-    p.y-5,
-    5,
-    5,
-    "#252525"
-  );
-
-
-  rectPixel(
-    p.x-5,
-    p.y+7,
-    10,
-    3,
-    "#613b2c"
-  );
-
-
-  /*
-    Player weapon.
-  */
-
-  ctx.save();
-
-  ctx.translate(
-    p.x,
-    p.y
-  );
-
-  ctx.rotate(a);
-
-
-  rectPixel(
-    9,
-    -3,
-    22,
-    6,
-    "#7d4b28"
-  );
-
-
-  ctx.restore();
-
-
-  /*
-    Shield goes around player.
-  */
-
-  drawShield();
-
-
-  /*
-    Bat swing is drawn over player.
-  */
-
-  drawBatSwing();
-
-
-  /*
-    Score.
+    Top HUD.
   */
 
   ctx.font="16px monospace";
-
   ctx.fillStyle="#fff";
-
 
   ctx.fillText(
     "SCORE "+score,
-    25,
-    25
+    25,25
   );
-
 
   ctx.fillText(
     "HIGH "+
@@ -5092,14 +3803,8 @@ function draw(){
         "pixelNatureHighscore"
       )||0
     ),
-    145,
-    25
+    145,25
   );
-
-
-  /*
-    Hearts.
-  */
 
   for(
     let i=0;
@@ -5112,114 +3817,52 @@ function draw(){
       10,
       i<hearts
     );
-
   }
 
-
-  /*
-    Coins.
-  */
-
   drawCoin(
-    780,
-    8
+    780,8
   );
-
 
   ctx.fillStyle="#fff";
 
   ctx.fillText(
     "COINS",
-    802,
-    17
+    802,17
   );
-
 
   ctx.fillStyle="#ffe875";
 
   ctx.fillText(
     String(coins),
-    802,
-    33
+    802,33
   );
-
 
   /*
     Bomb HUD.
   */
 
   rectPixel(
-    160,
-    545,
-    22,
-    22,
+    160,545,
+    22,22,
     "#111"
   );
 
   rectPixel(
-    163,
-    548,
-    16,
-    16,
+    163,548,
+    16,16,
     "#444"
   );
-
-  rectPixel(
-    167,
-    544,
-    8,
-    5,
-    "#777"
-  );
-
-  rectPixel(
-    175,
-    541,
-    7,
-    3,
-    "#ddd"
-  );
-
 
   ctx.fillStyle="#fff";
 
   ctx.fillText(
     "x"+bombCount,
-    187,
-    562
+    187,562
   );
-
 
   /*
-    Fireball cooldown HUD.
+    Fireball HUD.
   */
-
-  rectPixel(
-    770,
-    548,
-    18,
-    18,
-    "#9d3c12"
-  );
-
-  rectPixel(
-    775,
-    544,
-    8,
-    25,
-    "#ff9b25"
-  );
-
-  rectPixel(
-    777,
-    549,
-    5,
-    10,
-    "#ffe27a"
-  );
-
-
-  ctx.fillStyle="#fff";
 
   ctx.fillText(
     fireCooldown>0
@@ -5227,10 +3870,8 @@ function draw(){
       fireCooldown/60
     ).toFixed(1)
     :"READY",
-    800,
-    562
+    800,562
   );
-
 
   /*
     Bat HUD.
@@ -5238,53 +3879,43 @@ function draw(){
 
   if(batAbility){
 
-    ctx.fillStyle="#d9d9d9";
+    ctx.fillStyle="#ddd";
 
     ctx.fillText(
       "BAT [F]",
-      675,
-      535
+      665,535
     );
 
+    if(
+      batCooldown>0
+    ){
 
-    ctx.fillStyle=
-      batCooldown<=0
-      ?" #8ee889".trim()
-      :"#ffcf4d";
+      ctx.fillStyle="#ffcf4d";
 
+      ctx.fillText(
+        batCooldown.toFixed(1)+"s",
+        735,558
+      );
+
+    }else{
+
+      ctx.fillStyle="#8cff8c";
+
+      ctx.fillText(
+        "READY",
+        735,558
+      );
+    }
+
+  }else{
+
+    ctx.fillStyle="#aaa";
 
     ctx.fillText(
-      batCooldown<=0
-      ?"READY"
-      :(
-        batCooldown
-      ).toFixed(1)+"s",
-      675,
-      558
+      "BAT [LOCKED]",
+      650,558
     );
-
   }
-
-
-  /*
-    Shield HUD.
-  */
-
-  if(
-    p.shieldTimer>0
-  ){
-
-    ctx.fillStyle="#63bfff";
-
-    ctx.fillText(
-      "SHIELD "+
-      p.shieldTimer.toFixed(1)+"s",
-      500,
-      25
-    );
-
-  }
-
 
   /*
     Controls.
@@ -5293,54 +3924,13 @@ function draw(){
   ctx.fillStyle="#fff";
 
   ctx.fillText(
-    batAbility
-    ?"WASD move • Mouse aim • Click fire • Q bomb • F bat • P pause"
-    :"WASD move • Mouse aim • Click fire • Q bomb • P pause",
-    160,
-    585
+    "WASD move • Mouse aim • Click fire • Q bomb • F bat • P pause",
+    160,585
   );
-
-
-  /*
-    Bat pickup message.
-  */
-
-  if(
-    bat.active
-  ){
-
-    ctx.textAlign="center";
-
-    ctx.fillStyle="#8edfff";
-
-    ctx.font="20px monospace";
-
-    ctx.fillText(
-      "TOUCH THE BAT",
-      W/2,
-      120
-    );
-
-
-    ctx.font="14px monospace";
-
-    ctx.fillStyle="#fff";
-
-    ctx.fillText(
-      "PICK IT UP TO UNLOCK F",
-      W/2,
-      145
-    );
-
-
-    ctx.textAlign="left";
-
-  }
-
 
   /*
     Boss countdown.
-    ONLY THE COUNTDOWN CHANGES.
+    Entire game is frozen while this is shown.
   */
 
   if(
@@ -5348,62 +3938,44 @@ function draw(){
   ){
 
     ctx.fillStyle="#120000";
-
     ctx.globalAlpha=.94;
 
     ctx.fillRect(
-      0,
-      0,
-      W,
-      H
+      0,0,W,H
     );
 
     ctx.globalAlpha=1;
 
-
     ctx.textAlign="center";
 
-
     ctx.fillStyle="#ff4444";
-
     ctx.font="38px monospace";
 
     ctx.fillText(
       "BOSS INCOMING",
-      W/2,
-      190
+      W/2,190
     );
 
-
     ctx.fillStyle="#fff";
-
     ctx.font="100px monospace";
 
     ctx.fillText(
       bossCountdownValue,
-      W/2,
-      320
+      W/2,320
     );
-
 
     ctx.font="18px monospace";
 
     ctx.fillText(
       "THE GATE IS OPENING...",
-      W/2,
-      370
+      W/2,370
     );
 
-
     ctx.textAlign="left";
-
   }
 
-
   /*
-    Upgrade menu.
-    The game is completely frozen
-    while this is displayed.
+    Upgrade screen.
   */
 
   if(
@@ -5411,230 +3983,273 @@ function draw(){
   ){
 
     ctx.fillStyle="#0a130d";
-
     ctx.globalAlpha=.96;
 
     ctx.fillRect(
-      0,
-      0,
-      W,
-      H
+      0,0,W,H
     );
 
     ctx.globalAlpha=1;
 
-
     ctx.fillStyle="#fff";
-
     ctx.font="32px monospace";
 
     ctx.fillText(
       "CHOOSE YOUR UPGRADE",
-      245,
-      125
+      245,125
     );
 
-
     ctx.font="20px monospace";
-
     ctx.fillStyle="#ffe875";
 
     ctx.fillText(
       "COINS: "+coins,
-      390,
-      165
+      390,165
     );
 
-
     ctx.fillStyle="#fff";
-
     ctx.font="16px monospace";
 
     ctx.fillText(
       "Cost: "+
       upgradeCost+
       " coins   (1 / 2 / 3 / 4)",
-      285,
-      195
+      285,195
     );
 
-
     const cards=[
-
-      [
-        "1",
-        "HEALTH",
-        "+20 MAX HP",
-        90
-      ],
-
-      [
-        "2",
-        "DAMAGE",
-        "+14 FIREBALL",
-        295
-      ],
-
-      [
-        "3",
-        "SPEED",
-        "+0.4 MOVE",
-        500
-      ],
-
-      [
-        "4",
-        "NOTHING",
-        "FREE",
-        705
-      ]
-
+      ["1","HEALTH","+20 MAX HP",90],
+      ["2","DAMAGE","+14 FIREBALL",295],
+      ["3","SPEED","+0.4 MOVE",500],
+      ["4","NOTHING","FREE",705]
     ];
 
-
     for(
-      const [
-        n,
-        title,
-        desc,
-        x
-      ]
+      const [n,t,d,x]
       of cards
     ){
 
       ctx.fillStyle=
-        title==="NOTHING"
+        t==="NOTHING"
         ?"#183c1d"
         :"#1e3d20";
 
-
       ctx.fillRect(
-        x,
-        235,
-        170,
-        130
+        x,235,
+        170,130
       );
 
-
       ctx.strokeStyle=
-        title==="NOTHING"
+        t==="NOTHING"
         ?"#8ee889"
         :"#65b95b";
 
-
       ctx.lineWidth=4;
 
-
       ctx.strokeRect(
-        x,
-        235,
-        170,
-        130
+        x,235,
+        170,130
       );
-
 
       ctx.fillStyle="#bdebb5";
-
       ctx.font="21px monospace";
 
-
       ctx.fillText(
-        n+". "+title,
-        x+15,
-        275
+        n+". "+t,
+        x+15,275
       );
-
 
       ctx.font="14px monospace";
 
-
       ctx.fillText(
-        desc,
-        x+25,
-        310
+        d,
+        x+25,310
       );
 
-
       ctx.fillText(
-        title==="NOTHING"
+        t==="NOTHING"
         ?"SKIP"
         :"BUY",
-        x+60,
-        340
+        x+60,340
       );
-
     }
 
-
     ctx.fillStyle="#fff";
-
     ctx.font="14px monospace";
 
-
     ctx.fillText(
-      "The whole game is paused until you choose.",
-      280,
-      405
+      "THE WHOLE GAME IS PAUSED UNTIL YOU CHOOSE.",
+      265,405
     );
-
   }
 
-
   /*
-    Paused screen.
+    Manual pause.
   */
 
-  if(
-    paused
-  ){
+  if(paused){
 
     ctx.fillStyle="#000";
-
-    ctx.globalAlpha=.72;
+    ctx.globalAlpha=.75;
 
     ctx.fillRect(
-      0,
-      0,
-      W,
-      H
+      0,0,W,H
     );
 
     ctx.globalAlpha=1;
 
-
     ctx.textAlign="center";
 
     ctx.fillStyle="#fff";
-
     ctx.font="46px monospace";
 
     ctx.fillText(
       "PAUSED",
-      W/2,
-      280
+      W/2,280
     );
-
 
     ctx.font="18px monospace";
 
     ctx.fillText(
       "Press P or click RESUME",
-      W/2,
-      320
+      W/2,320
     );
 
-
     ctx.textAlign="left";
-
   }
 
-
   /*
-    Low-health red corners must be last.
+    Victory cutscene.
   */
 
-  drawLowHealthOverlay();
+  if(victorySequence){
 
+    ctx.fillStyle="#000";
+    ctx.globalAlpha=.38;
+
+    ctx.fillRect(
+      0,0,W,H
+    );
+
+    ctx.globalAlpha=1;
+
+    ctx.textAlign="center";
+
+    ctx.fillStyle="#fff";
+    ctx.font="30px monospace";
+
+    ctx.fillText(
+      "BIG BOSS DEFEATED!",
+      W/2,105
+    );
+
+    if(
+      victoryTimer>0
+    ){
+
+      ctx.font="18px monospace";
+
+      ctx.fillText(
+        "THE BIG BOSS IS DISINTEGRATING...",
+        W/2,145
+      );
+
+    }else if(
+      bat.active
+    ){
+
+      ctx.font="18px monospace";
+
+      ctx.fillText(
+        "THE BIG BOSS DROPPED HIS BAT!",
+        W/2,145
+      );
+
+      ctx.fillText(
+        "TOUCH IT TO UNLOCK THE BAT ABILITY",
+        W/2,170
+      );
+    }
+
+    ctx.textAlign="left";
+  }
+
+  /*
+    Game over.
+  */
+
+  if(gameOver){
+
+    ctx.fillStyle="#000";
+    ctx.globalAlpha=.82;
+
+    ctx.fillRect(
+      0,0,W,H
+    );
+
+    ctx.globalAlpha=1;
+
+    ctx.fillStyle="#fff";
+    ctx.font="42px monospace";
+
+    ctx.fillText(
+      "GAME OVER",
+      350,260
+    );
+
+    ctx.font="18px monospace";
+
+    ctx.fillText(
+      "Score: "+
+      score+
+      "   High Score: "+
+      Number(
+        localStorage.getItem(
+          "pixelNatureHighscore"
+        )||0
+      ),
+      320,300
+    );
+
+    ctx.fillText(
+      "Press R to restart",
+      355,340
+    );
+  }
+
+  /*
+    Low-health effect.
+  */
+
+  if(
+    hearts===1&&
+    !gameOver
+  ){
+
+    const g=
+      ctx.createRadialGradient(
+        W/2,H/2,
+        180,
+        W/2,H/2,
+        620
+      );
+
+    g.addColorStop(
+      0,
+      "rgba(255,0,0,0)"
+    );
+
+    g.addColorStop(
+      1,
+      "rgba(210,0,0,.48)"
+    );
+
+    ctx.fillStyle=g;
+
+    ctx.fillRect(
+      0,0,W,H
+    );
+  }
 }
 
 
@@ -5646,73 +4261,62 @@ function loop(){
 
   requestAnimationFrame(loop);
 
-
   /*
-    Always draw frozen states.
+    Always draw the current state.
   */
 
-  if(
-    gameOver
-  ){
+  if(gameOver){
 
     draw();
-
     return;
 
   }
-
 
   /*
     Manual pause.
   */
 
-  if(
-    paused
-  ){
+  if(paused){
 
     draw();
-
     return;
 
   }
-
 
   /*
     Upgrade pause.
-    NOTHING updates here.
+    Nothing in the world moves here.
   */
 
-  if(
-    upgradeOpen
-  ){
+  if(upgradeOpen){
 
     draw();
-
     return;
 
   }
 
-
   /*
-    Victory cutscene.
+    Victory sequence.
+    This is completely separate from the
+    normal game update.
   */
 
-  if(
-    victorySequence
-  ){
+  if(victorySequence){
 
     updateVictory();
 
     updateParticles();
 
-
     /*
-      After the disintegration,
-      the player can move toward the bat.
+      IMPORTANT:
+      After the disintegration timer reaches zero,
+      updatePlayer is allowed to move.
+      This fixes the old stuck victory screen.
     */
 
     if(
-      bat.active
+      bat.active&&
+      !bat.collected
     ){
 
       updatePlayer();
@@ -5721,90 +4325,65 @@ function loop(){
 
     }
 
-
     draw();
 
     return;
 
   }
 
+  /*
+    Fireball cooldown.
+  */
+
+  if(fireCooldown>0){
+
+    fireCooldown--;
+
+    if(fireCooldown<0)
+      fireCooldown=0;
+  }
 
   /*
     Bat cooldown.
   */
 
-  if(
-    batCooldown>0
-  ){
+  if(batCooldown>0){
 
     batCooldown-=1/60;
 
-
-    if(
-      batCooldown<0
-    ){
-
+    if(batCooldown<0)
       batCooldown=0;
-
-    }
-
   }
-
 
   /*
     Bat swing animation.
   */
 
-  if(
-    batSwing>0
-  ){
+  if(batSwing>0){
 
     batSwing-=1/60;
 
-
-    if(
-      batSwing<0
-    ){
-
+    if(batSwing<0)
       batSwing=0;
-
-    }
-
   }
 
-
   /*
-    Fireball cooldown.
-  */
-
-  if(
-    fireCooldown>0
-  ){
-
-    fireCooldown--;
-
-  }
-
-
-  /*
-    Shield timer.
+    Shield.
   */
 
   updateShield();
 
-
   /*
-    IMPORTANT:
-    Normal game time advances only here.
+    Normal game time.
   */
 
   elapsed+=1/60;
 
-
-  /* =======================================================
-     BOSS COUNTDOWN
-     Only countdown changes.
-  ======================================================= */
+  /*
+    Boss countdown.
+    Absolutely everything except the countdown
+    is frozen.
+  */
 
   if(
     !bigBoss&&
@@ -5814,24 +4393,17 @@ function loop(){
   ){
 
     bossCountdown=3;
-
     bossCountdownValue=3;
-
   }
 
-
-  if(
-    bossCountdown>0
-  ){
+  if(bossCountdown>0){
 
     bossCountdown-=1/60;
-
 
     const newValue=
       Math.ceil(
         bossCountdown
       );
-
 
     if(
       newValue!==bossCountdownValue&&
@@ -5840,9 +4412,7 @@ function loop(){
 
       bossCountdownValue=
         newValue;
-
     }
-
 
     if(
       bossCountdown<=0
@@ -5854,31 +4424,21 @@ function loop(){
 
     }
 
-
-    /*
-      Everything else stays frozen.
-    */
-
     draw();
 
     return;
-
   }
 
+  /*
+    Goblin upgrades.
+  */
 
-  /* =======================================================
-     NORMAL GOBLIN UPGRADES
-  ======================================================= */
-
-  if(
-    !bossDefeated
-  ){
+  if(!bossDefeated){
 
     const newGoblinLevel=
       Math.floor(
         elapsed/27
       );
-
 
     if(
       newGoblinLevel>
@@ -5887,23 +4447,22 @@ function loop(){
 
       goblinBuffLevel=
         newGoblinLevel;
-
     }
-
   }
 
-
-  /* =======================================================
-     SKELETON UPGRADES
-  ======================================================= */
+  /*
+    Skeleton upgrades.
+    These happen every 27 seconds after
+    the bat has been collected.
+  */
 
   if(
     bossDefeated&&
-    skeletonMode
+    skeletonMode&&
+    batAbility
   ){
 
     skeletonUpgradeTimer-=1/60;
-
 
     if(
       skeletonUpgradeTimer<=0
@@ -5912,15 +4471,12 @@ function loop(){
       upgradeSkeletons();
 
       skeletonUpgradeTimer=27;
-
     }
-
   }
 
-
-  /* =======================================================
-     BIG BOSS
-  ======================================================= */
+  /*
+    Big Boss.
+  */
 
   if(
     bigBoss&&
@@ -5931,10 +4487,9 @@ function loop(){
 
   }
 
-
-  /* =======================================================
-     NORMAL WORLD
-  ======================================================= */
+  /*
+    Normal world.
+  */
 
   if(
     !bigBoss&&
@@ -5942,11 +4497,10 @@ function loop(){
   ){
 
     /*
-      Bomb pickup spawning.
+      Bomb pickups.
     */
 
     bombSpawnTimer-=1/60;
-
 
     if(
       bombSpawnTimer<=0
@@ -5955,28 +4509,19 @@ function loop(){
       spawnBombPickup();
 
       bombSpawnTimer=20;
-
     }
-
-
-    /*
-      Bomb pickup lifetime.
-    */
 
     for(
       const bp of bombPickups
     ){
 
       bp.life-=1/60;
-
     }
-
 
     bombPickups=
       bombPickups.filter(
         bp=>bp.life>0
       );
-
 
     /*
       Collect bombs.
@@ -6003,23 +4548,14 @@ function loop(){
           bombCount++;
 
           bombPickups.splice(
-            i,
-            1
+            i,1
           );
-
         }
-
       }
-
     }
 
-
     /*
-      NORMAL UPGRADE TIMER.
-
-      This is intentionally independent
-      from goblin spawning and is only
-      disabled once the Big Boss is defeated.
+      Upgrades.
     */
 
     if(
@@ -6030,18 +4566,10 @@ function loop(){
 
       nextUpgrade+=70;
 
-
-      /*
-        Immediately draw the menu.
-        The next loop frame is frozen.
-      */
-
       draw();
 
       return;
-
     }
-
 
     /*
       Waves.
@@ -6052,7 +4580,6 @@ function loop(){
         elapsed/10
       )+1;
 
-
     if(
       newWave>wave
     ){
@@ -6060,9 +4587,7 @@ function loop(){
       wave=newWave;
 
       spawnWave(wave);
-
     }
-
 
     /*
       Mini boss every 50 seconds.
@@ -6072,7 +4597,6 @@ function loop(){
       Math.floor(
         elapsed/50
       );
-
 
     if(
       bossMark>0&&
@@ -6088,9 +4612,7 @@ function loop(){
       ){
 
         window.lastBossMark=0;
-
       }
-
 
       if(
         bossMark>
@@ -6099,104 +4621,72 @@ function loop(){
 
         spawnEnemy("ogre");
 
-
-        if(
-          enemies.length
-        ){
+        if(enemies.length){
 
           enemies[
             enemies.length-1
           ].bossMark=
             bossMark;
-
         }
-
 
         window.lastBossMark=
           bossMark;
-
       }
-
     }
-
   }
 
-
-  /* =======================================================
-     PLAYER
-  ======================================================= */
+  /*
+    Player.
+  */
 
   updatePlayer();
 
+  /*
+    Fire.
+  */
 
-  /* =======================================================
-     FIREBALLS
-  ======================================================= */
-
-  if(
-    mouse.down
-  ){
+  if(mouse.down){
 
     shoot();
-
   }
-
 
   updateBalls();
 
-
-  /* =======================================================
-     BOMBS
-  ======================================================= */
+  /*
+    Bombs.
+  */
 
   updateBombs();
 
-
-  /* =======================================================
-     ENEMIES
-  ======================================================= */
+  /*
+    Enemies.
+  */
 
   updateEnemies();
 
-
-  /* =======================================================
-     BAT
-  ======================================================= */
-
-  collectBat();
-
-
-  /* =======================================================
-     PARTICLES
-  ======================================================= */
+  /*
+    Particles.
+  */
 
   updateParticles();
 
+  /*
+    Heart regeneration.
+  */
 
-  /* =======================================================
-     HEART REGEN
-  ======================================================= */
-
-  if(
-    heartRegen>0
-  ){
+  if(heartRegen>0){
 
     heartRegen-=1/60;
-
 
     if(
       heartRegen<=0
     ){
 
       regainHeart();
-
     }
-
   }
 
-
   draw();
-
 }
 
 
@@ -6205,10 +4695,10 @@ function loop(){
 ========================================================= */
 
 reset();
-
 loop();
 
 </script>
 
 </body>
 </html>
+```
