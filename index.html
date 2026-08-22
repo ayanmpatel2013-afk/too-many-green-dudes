@@ -135,6 +135,13 @@ let upgradeCounts={
   speed:0
 };
 
+/* RANDOM UPGRADE SYSTEM */
+let currentRandomUpgrade="damage";
+
+/* Health upgrades needed to earn the next heart. */
+let healthUpgradesSinceHeart=0;
+let healthUpgradesNeededForHeart=1;
+
 /* =========================================================
    PLAYER HEALTH
 ========================================================= */
@@ -651,15 +658,9 @@ window.addEventListener(
     ){
 
       if(e.key==="1")
-        buyUpgrade("health");
+        buyUpgrade(currentRandomUpgrade);
 
       if(e.key==="2")
-        buyUpgrade("damage");
-
-      if(e.key==="3")
-        buyUpgrade("speed");
-
-      if(e.key==="4")
         buyUpgrade("nothing");
 
     }
@@ -790,6 +791,10 @@ function reset(){
     damage:0,
     speed:0
   };
+
+  currentRandomUpgrade="damage";
+  healthUpgradesSinceHeart=0;
+  healthUpgradesNeededForHeart=1;
 
   goblinHits=0;
   ogreHits=0;
@@ -1660,6 +1665,25 @@ function endGame(){
    UPGRADES
 ========================================================= */
 
+function openUpgradeMenu(){
+
+  const choices=[
+    "health",
+    "damage",
+    "speed"
+  ];
+
+  currentRandomUpgrade=
+    choices[
+      Math.floor(
+        Math.random()*choices.length
+      )
+    ];
+
+  upgradeOpen=true;
+
+}
+
 function buyUpgrade(kind){
 
   /*
@@ -1706,6 +1730,27 @@ function buyUpgrade(kind){
         p.maxHp,
         p.hp+20
       );
+
+    healthUpgradesSinceHeart++;
+
+    /*
+      Health upgrades gradually earn extra hearts.
+      The requirement increases after each heart:
+      1 health upgrade, then 2, then 3, then 4...
+    */
+    if(
+      healthUpgradesSinceHeart>=
+      healthUpgradesNeededForHeart
+    ){
+
+      if(hearts<3){
+        hearts++;
+      }
+
+      healthUpgradesSinceHeart=0;
+      healthUpgradesNeededForHeart++;
+
+    }
 
   }
 
@@ -5353,34 +5398,40 @@ function draw(){
       190
     );
 
+    let randomTitle="";
+    let randomDescription="";
+
+    if(currentRandomUpgrade==="health"){
+
+      randomTitle="HEALTH";
+      randomDescription="+20 MAX HP";
+
+    }else if(currentRandomUpgrade==="damage"){
+
+      randomTitle="DAMAGE";
+      randomDescription="+14 FIREBALL";
+
+    }else{
+
+      randomTitle="SPEED";
+      randomDescription="+0.4 MOVE";
+
+    }
+
     const cards=[
 
       [
         "1",
-        "HEALTH",
-        "+20 MAX HP",
-        90
+        randomTitle,
+        randomDescription,
+        170
       ],
 
       [
         "2",
-        "DAMAGE",
-        "+14 FIREBALL",
-        295
-      ],
-
-      [
-        "3",
-        "SPEED",
-        "+0.4 MOVE",
-        500
-      ],
-
-      [
-        "4",
         "NOTHING",
         "SKIP",
-        705
+        530
       ]
 
     ];
@@ -5398,8 +5449,8 @@ function draw(){
       ctx.fillRect(
         x,
         235,
-        170,
-        130
+        260,
+        150
       );
 
       ctx.strokeStyle=
@@ -5412,8 +5463,8 @@ function draw(){
       ctx.strokeRect(
         x,
         235,
-        170,
-        130
+        260,
+        150
       );
 
       ctx.fillStyle="#bdebb5";
@@ -5421,7 +5472,7 @@ function draw(){
 
       ctx.fillText(
         n+". "+t,
-        x+85,
+        x+130,
         275
       );
 
@@ -5429,7 +5480,7 @@ function draw(){
 
       ctx.fillText(
         d,
-        x+85,
+        x+130,
         310
       );
 
@@ -5437,7 +5488,7 @@ function draw(){
         t==="NOTHING"
         ?"SKIP"
         :"BUY",
-        x+85,
+        x+130,
         340
       );
 
@@ -5447,9 +5498,15 @@ function draw(){
     ctx.font="14px monospace";
 
     ctx.fillText(
-      "The entire game is paused until you choose.",
+      "1 = TAKE THE RANDOM UPGRADE",
       W/2,
       405
+    );
+
+    ctx.fillText(
+      "2 = NOTHING / SKIP",
+      W/2,
+      430
     );
 
     ctx.textAlign="left";
@@ -6012,7 +6069,7 @@ function loop(){
       elapsed>=nextUpgrade
     ){
 
-      upgradeOpen=true;
+      openUpgradeMenu();
 
       nextUpgrade+=70;
 
@@ -6108,7 +6165,7 @@ function loop(){
       elapsed>=nextUpgrade
     ){
 
-      upgradeOpen=true;
+      openUpgradeMenu();
 
       nextUpgrade+=70;
 
